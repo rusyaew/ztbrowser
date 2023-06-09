@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>My Extension Popup</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        padding: 10px;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: bold;
+        margin: 0 0 10px 0;
+      }
+      .status {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .status.valid {
+        color: green;
+      }
+      .status.invalid {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>ZeroTrust Browser</h1>
+    <div class="status working-env">
+      Working Environment:
+    </div>
+    <div class="status code-validated">
+      Code Validated: 
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
