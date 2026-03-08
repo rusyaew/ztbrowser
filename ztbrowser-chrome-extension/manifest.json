@@ -1,27 +1,27 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "ZTBROWSER",
-  "version": "1.0.0",
-  "description": "My Chrome extension",
+  "version": "2.0.0",
+  "description": "Verify Nitro attestation docs and map PCRs to public facts",
   "icons": {
     "16": "unlocked-16x16.png"
   },
-  "browser_action": {
+  "action": {
     "default_icon": {
       "16": "unlocked-16x16.png"
     },
     "default_title": "ZTBrowser",
     "default_popup": "popup.html"
   },
-  "permissions": [
-    "activeTab",
-    "<all_urls>",
-    "storage",
-    "tabs"
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "http://localhost:9999/*",
+    "http://localhost:3000/*",
+    "http://localhost:7777/*"
   ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["http://localhost:9999/*"],
       "js": ["content.js"]
     }
   ],

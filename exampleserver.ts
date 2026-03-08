@@ -1,36 +1,136 @@
-import { attest, sgx, types } from 'sgx-ias-js';
-import express, { Request, Response } from 'express';
-import bodyParser from 'body-parser';
+import express from 'express';
 import cors from 'cors';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import cbor from 'cbor';
+import { fileURLToPath } from 'node:url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(cors({ origin: true }));
 
-app.use(bodyParser.json());
-const corsOptions ={
-  origin:'http://localhost:3000', 
-  credentials:true,            //access-control-allow-credentials:true
-  optionSuccessStatus:200
+const mode = process.env.MODE === 'bad' ? 'bad' : 'good';
+const port = Number(process.env.PORT ?? '9999');
+
+const rootCertPath = process.env.DEMO_ROOT_CERT_PATH ?? path.join(__dirname, 'fixtures', 'demo-pki', 'root-cert.pem');
+const leafCertPath = process.env.DEMO_LEAF_CERT_PATH ?? path.join(__dirname, 'fixtures', 'demo-pki', 'leaf-cert.pem');
+const leafKeyPath = process.env.DEMO_LEAF_KEY_PATH ?? path.join(__dirname, 'fixtures', 'demo-pki', 'leaf-key.pem');
+
+const repoUrl = process.env.REPO_URL ?? 'https://github.com/example/demo-service-repo';
+const ociImageDigest =
+  process.env.OCI_IMAGE_DIGEST ?? 'sha256:1111111111111111111111111111111111111111111111111111111111111111';
+const workloadId = process.env.WORKLOAD_ID ?? 'demo-workload-fixture';
+const moduleId = process.env.MODULE_ID ?? 'i-demo-instance-enc-demo';
+
+function normalizePcrHex(value: string, fallbackByte: string): string {
+  const clean = value.replace(/^0x/i, '').toLowerCase();
+  if (/^[0-9a-f]{96}$/.test(clean)) {
+    return clean;
+  }
+  return fallbackByte.repeat(96);
 }
-app.use(cors(corsOptions));
 
-const fromSGX = {
-  "IAS_REPORT": "{\"nonce\":\"some nonce\",\"id\":\"31209355433493617787376776503240433872\",\"timestamp\":\"2020-10-06T08:52:53.347575\",\"version\":4,\"epidPseudonym\":\"Itmg0J96ogakfocRkBJTgQpKMR\/vxHuzGzjBc4e7MOLi5YFG7MpdPvxc4ig9Kwr5JSCzB\/LFoRC35Pns2g+hqHHSO67EJ7kJw8FBUSnYYWxOrJn\/RnKPO\/V9NyLL04KOYnFZG6WJR8ocK\/TmHv9IhX0VvBHuOzuwlHV6eJk075Y=\",\"advisoryURL\":\"https:\/\/security-center.intel.com\",\"advisoryIDs\":[\"INTEL-SA-00161\",\"INTEL-SA-00320\",\"INTEL-SA-00329\",\"INTEL-SA-00220\",\"INTEL-SA-00270\",\"INTEL-SA-00293\",\"INTEL-SA-00233\"],\"isvEnclaveQuoteStatus\":\"GROUP_OUT_OF_DATE\",\"platformInfoBlob\":\"1502006504000900000F0F02040101070000000000000000000B00000B000000020000000000000B398400622A16A0D18310FE44F83C3759D80D9A509ADF3A9E3DF8912C35236289A76C9A02E31CBF7EC9BBE866A4C2B14976AF5F1F2F67432A910CAC8F9F1B2E443D\",\"isvEnclaveQuoteBody\":\"AgABADkLAAALAAoAAAAAAGVa+jP6pbnMXp4kH6IpuZQAAAAAAAAAAAAAAAAAAAAACBD\/\/wECAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwAAAAAAAAAfAAAAAAAAAIn9CW9E4gK8MNf1FfUWauX3xTcHygIXbNBzU+wynQBOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABXexgNvNrje9nyZEQYnjunithb0DUVvyb1xEVcUoSyFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACoAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABjhc64dNI6h8\/p+VxDIHTPKpGbcBcVdFaW\/ntInWb2KW3oezUl5+GYyfwk1q80UOE8TjaarYTesWc\/aUoWB1Ul\"}",
-  "IAS_SIG_HEX": "31fb8c591d9d4d4f71611c9f829a889be5c19857da86036181de37f966ea26838f57bfb197da250d609443956b93771dbf1f29921c83698eb4c593ba\r\ne26f4a428e3fe62811ec83b0fb1e3626103487f961630961842aed567d9a\r\n3b6778b8e2bd03d889b97d6b985a65058bbebd63022c4bb162ad045bfd55\r\nb86fb6fc9c4e19cfaff6c5503b6e1a49c58da10ad2fea7b2332c94129b5c\r\n01495b021bf7af1db7c504d1ae4f26b4894aa45104734ac9eb16cd438b80\r\ncb24c0b0757dbb05ebccfe8d2d72c223564c0a66227fe4c07a58dac93272\r\n2d81969f95d424b372b64ead2d697388dfa0da21fe5f99ec13171bd12f2c\r\n40e238ae25805879bd11f0c4267d3b5a",
-  "CODEEXP": "89fd096f44e202bc30d7f515f5166ae5f7c53707ca02176cd07353ec329d004e",
-  "NONCE": "some nonce"
+const pcrs = {
+  pcr0: normalizePcrHex(process.env.PCR0 ?? '', '0'),
+  pcr1: normalizePcrHex(process.env.PCR1 ?? '', '0'),
+  pcr2: normalizePcrHex(process.env.PCR2 ?? '', '0'),
+  pcr8: normalizePcrHex(process.env.PCR8 ?? '', '0')
+};
+
+function pemToDer(pem: string): Buffer {
+  const stripped = pem.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\s+/g, '');
+  return Buffer.from(stripped, 'base64');
+}
+
+const rootCertPem = fs.readFileSync(rootCertPath, 'utf8');
+const leafCertPem = fs.readFileSync(leafCertPath, 'utf8');
+const leafKeyPem = fs.readFileSync(leafKeyPath, 'utf8');
+const rootCertDer = pemToDer(rootCertPem);
+const leafCertDer = pemToDer(leafCertPem);
+
+function parseNonceToBuffer(nonce: string): Buffer {
+  const clean = nonce.trim().toLowerCase();
+  if (/^[0-9a-f]+$/.test(clean) && clean.length % 2 === 0) {
+    return Buffer.from(clean, 'hex');
+  }
+  return crypto.createHash('sha256').update(clean).digest();
+}
+
+function buildAttestationDoc(nonce: string): string {
+  const nonceBuffer = parseNonceToBuffer(nonce);
+  const payload = cbor.encodeCanonical(
+    new Map<string, unknown>([
+      ['module_id', moduleId],
+      ['digest', 'SHA384'],
+      ['timestamp', Date.now()],
+      [
+        'pcrs',
+        new Map<number, Buffer>([
+          [0, Buffer.from(pcrs.pcr0, 'hex')],
+          [1, Buffer.from(pcrs.pcr1, 'hex')],
+          [2, Buffer.from(pcrs.pcr2, 'hex')],
+          [8, Buffer.from(pcrs.pcr8, 'hex')]
+        ])
+      ],
+      ['certificate', leafCertDer],
+      ['cabundle', [rootCertDer]],
+      ['public_key', null],
+      ['user_data', null],
+      ['nonce', nonceBuffer]
+    ])
+  );
+
+  const protectedHeader = cbor.encodeCanonical(new Map<number, number>([[1, -35]]));
+  const sigStructure = cbor.encodeCanonical(['Signature1', protectedHeader, Buffer.alloc(0), payload]);
+
+  const signature = crypto.sign('sha384', sigStructure, {
+    key: leafKeyPem,
+    dsaEncoding: 'ieee-p1363'
+  });
+
+  const coseDoc = cbor.encodeCanonical([protectedHeader, new Map(), payload, signature]);
+
+  if (mode === 'bad') {
+    const tampered = Buffer.from(coseDoc);
+    tampered[tampered.length - 1] = tampered[tampered.length - 1] ^ 0xff;
+    return tampered.toString('base64');
   }
 
-app.get('/', (req: Request, res: Response) => {
-    res.send('<!DOCTYPE html><head><title>Super secure site</title></head><body>Hi!</body></html>')
+  return coseDoc.toString('base64');
+}
+
+app.get('/', (_req, res) => {
+  res.send(`<!DOCTYPE html>
+<html>
+  <head><title>ZTBrowser Nitro Demo</title></head>
+  <body>
+    <h1>Hello from demo service</h1>
+    <p>This page serves <code>/.well-known/attestation</code> for the extension demo.</p>
+  </body>
+</html>`);
 });
 
-app.post('/.well-known/attestation', (req: Request, res: Response) => {
-  const {NONCE} = req.body;
-  res.send(JSON.stringify(fromSGX));
+app.post('/.well-known/attestation', (req, res) => {
+  const requestNonce = typeof req.body?.NONCE === 'string' ? req.body.NONCE : '';
+  const docB64 = buildAttestationDoc(requestNonce);
+
+  res.json({
+    platform: 'aws_nitro_eif',
+    nonce: requestNonce,
+    workload: {
+      workload_id: workloadId,
+      repo_url: repoUrl,
+      oci_image_digest: ociImageDigest,
+      eif_pcrs: pcrs
+    },
+    evidence: {
+      nitro_attestation_doc_b64: docB64
+    }
+  });
 });
 
-
-app.listen(9999, () => {
-  console.log('Server started on port 9999');
+app.listen(port, () => {
+  console.log(`Example server listening on http://localhost:${port} (MODE=${mode})`);
 });
