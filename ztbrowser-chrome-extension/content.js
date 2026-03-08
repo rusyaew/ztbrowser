@@ -1,82 +1,120 @@
-  const storage = chrome.storage;
-  storage.local.set({'workingEnv': false})
-  storage.local.set({'codeValidated': false})
-  function updateIcon(locked) {
-    if (locked) chrome.runtime.sendMessage({locked: true});
-    else chrome.runtime.sendMessage({locked: false});
-    console.log('Validation status: ', locked)
+const FACTS_NODE_URLS = ['http://localhost:7777'];
+const VERIFY_URL = 'http://localhost:3000/verify';
+
+function setState(patch) {
+  chrome.storage.local.set(patch);
+}
+
+function updateIcon(locked) {
+  chrome.runtime.sendMessage({ locked: Boolean(locked) });
+}
+
+function generateNonceHex(bytes = 32) {
+  const nonce = new Uint8Array(bytes);
+  crypto.getRandomValues(nonce);
+  return Array.from(nonce)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function fetchAttestation(nonce) {
+  const endpoint = new URL('/.well-known/attestation', window.location.origin).toString();
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ NONCE: nonce })
+  });
+
+  if (!response.ok) {
+    throw new Error(`attestation_http_${response.status}`);
   }
-  
 
-  function validateCode() {
-    var nonce = Math.floor(Math.random() * 1000000000);
-    nonce = 'some nonce';
-    const endpoint = window.location.href + 'attestation';
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', endpoint);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.send(JSON.stringify({NONCE: 'some nonce'}));
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState === XMLHttpRequest.DONE) {
-        if (xhr.status === 200) {
-          const response = JSON.parse(xhr.responseText);
-          const { IAS_REPORT, IAS_SIG_HEX, CODEEXP } = response;
-          console.log('Server provided hash:', CODEEXP)
-          const xhr2 = new XMLHttpRequest();
-          xhr2.open('POST', 'http://localhost:3000/verify');
-          xhr2.setRequestHeader('Content-Type', 'application/json');
-          xhr2.send(JSON.stringify({
-            IAS_REPORT: IAS_REPORT,
-            IAS_SIG_HEX: IAS_SIG_HEX,
-            CODEEXP: CODEEXP,
-            NONCE: nonce
-          }));
-          xhr2.onreadystatechange = function () {
-            if (xhr2.readyState === XMLHttpRequest.DONE) {
-              if (xhr2.status === 200) {
-                const response2 = JSON.parse(xhr2.responseText);
-                console.log(response2);
-                if (response2.codeValidated && response2.workingEnv) {
-                  console.log('Validation aquired. Hash', CODEEXP, 'confirmed')
-                  console.log('SGX proof verified.', String(IAS_SIG_HEX).slice(0, 5),'....',String(IAS_SIG_HEX).slice(-5,-1), '. Your data is in a black box.')
-                } else if (response2.codeValidated) {
-                  console.log('SGX proof verified.', IAS_SIG_HEX, '. Your data is safe, but code is not verified')
-                }
+  return response.json();
+}
 
-                storage.local.set({'workingEnv': response2.workingEnv})
-                storage.local.set({'codeValidated': response2.codeValidated})
-                updateIcon(response2.codeValidated && response2.workingEnv);
-              } else {
-                console.error('Error validating code:', xhr2.statusText);
-                storage.local.set({'workingEnv': false})
-                storage.local.set({'codeValidated': false})
-                updateIcon(false);
-              }
-            }
-          };
-        } else {
-          updateIcon(false);
-        }
+async function verifyAttestation(platform, nonceSent, attestationDocB64) {
+  const response = await fetch(VERIFY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      platform,
+      nonce_sent: nonceSent,
+      attestation_doc_b64: attestationDocB64
+    })
+  });
+
+  const json = await response.json();
+  if (!response.ok) {
+    throw new Error(json.reason || `verify_http_${response.status}`);
+  }
+
+  return json;
+}
+
+async function lookupFactsForPcrs(pcrs) {
+  for (const base of FACTS_NODE_URLS) {
+    try {
+      const response = await fetch(`${base}/api/v1/lookup-by-pcr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pcrs)
+      });
+      if (!response.ok) {
+        continue;
       }
-    };
+      const data = await response.json();
+      if (data && data.matched && data.workload) {
+        return { matched: true, node: base, workload: data.workload };
+      }
+    } catch {
+      // Continue to next trusted node.
+    }
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
-    validateCode();
-  });
-  
-  window.addEventListener('beforeunload', function() {
-    updateIcon(false);
-    validateCode();
-  });
+  return { matched: false, node: null, workload: null };
+}
 
-  window.addEventListener('unload', function() {
-    updateIcon(false);
-    validateCode();
-    
-  });
+async function validate() {
+  const randomNonce = generateNonceHex();
 
-  
-  validateCode();
-  setInterval(validateCode, 60000);
-  
+  try {
+    const attestation = await fetchAttestation(randomNonce);
+    const platform = attestation.platform;
+    const attestationDoc = attestation?.evidence?.nitro_attestation_doc_b64;
+    const nonceForVerification = randomNonce;
+
+    if (platform !== 'aws_nitro_eif' || typeof attestationDoc !== 'string') {
+      throw new Error('invalid_attestation_payload');
+    }
+
+    const verdict = await verifyAttestation(platform, nonceForVerification, attestationDoc);
+    const pcrs = verdict?.verified?.pcrs || null;
+    const facts = pcrs ? await lookupFactsForPcrs(pcrs) : { matched: false, node: null, workload: null };
+
+    const locked = Boolean(verdict.workingEnv && verdict.codeValidated);
+    setState({
+      workingEnv: Boolean(verdict.workingEnv),
+      codeValidated: Boolean(verdict.codeValidated),
+      reason: verdict.reason || null,
+      verifiedPcrs: pcrs,
+      factsMatched: facts.matched,
+      factsNode: facts.node,
+      workload: facts.workload
+    });
+    updateIcon(locked);
+  } catch (error) {
+    setState({
+      workingEnv: false,
+      codeValidated: false,
+      reason: error instanceof Error ? error.message : 'validation_failed',
+      verifiedPcrs: null,
+      factsMatched: false,
+      factsNode: null,
+      workload: null
+    });
+    updateIcon(false);
+  }
+}
+
+validate();
+setInterval(validate, 60000);

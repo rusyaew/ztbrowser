@@ -1,39 +1,39 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8">
-    <title>My Extension Popup</title>
+    <meta charset="UTF-8" />
+    <title>ZTBrowser</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        padding: 10px;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+        margin: 0;
+        padding: 12px;
+        min-width: 320px;
       }
       h1 {
-        font-size: 18px;
-        font-weight: bold;
-        margin: 0 0 10px 0;
+        font-size: 16px;
+        margin: 0 0 10px;
       }
-      .status {
-        font-weight: bold;
-        margin-bottom: 5px;
+      .row {
+        margin: 6px 0;
+        font-size: 13px;
       }
-      .status.valid {
-        color: green;
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        word-break: break-all;
       }
-      .status.invalid {
-        color: red;
-      }
+      .ok { color: #0b7a30; }
+      .bad { color: #b42318; }
     </style>
   </head>
   <body>
-    <h1>ZeroTrust Browser</h1>
-    <div class="status working-env">
-      Working Environment:
-    </div>
-    <div class="status code-validated">
-      Code Validated: 
-    </div>
+    <h1>ZTBrowser</h1>
+    <div id="status" class="row">Status: unknown</div>
+    <div id="reason" class="row">Reason: n/a</div>
+    <div id="facts" class="row">Facts match: n/a</div>
+    <div id="repo" class="row mono"></div>
+    <div id="digest" class="row mono"></div>
+    <div id="pcrs" class="row mono"></div>
     <script src="popup.js"></script>
   </body>
 </html>
