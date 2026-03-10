@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import cbor from 'cbor';
 import { fileURLToPath } from 'node:url';
 
+//Deprecated
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
