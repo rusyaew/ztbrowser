@@ -41,7 +41,7 @@ If you are running this demo with the local checker, start the checker with the 
 TRUST_ROOT_CERT_PATHS=./fixtures/demo-pki/root-cert.pem npm run dev:checker
 ```
 
-The checker reads `TRUST_ROOT_CERT_PATHS` (not `RUST_ROOT_CERT_PATHS`).
+The checker reads `TRUST_ROOT_CERT_PATHS`.
 
 `ATTESTATION_MODE` controls the cryptographic behavior:
 
