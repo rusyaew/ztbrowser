@@ -1,4 +1,4 @@
-import { verifyAttestationRequest } from './attestationVerifier.mjs';
+import { verifyAttestationRequest } from './verifier/attestationVerifier.mjs';
 
 const iconPath = {
   locked: { 16: 'locked-16x16.png' },

@@ -2,10 +2,11 @@
 
 This repository demonstrates Nitro attestation verification in a browser-assisted flow:
 
-- `exampleserver.ts` serves a demo website and `POST /.well-known/attestation`
+- `demo-service-repo/exampleserver.ts` serves a demo website and `POST /.well-known/attestation`
 - `clientsidechecker.ts` verifies Nitro attestation document signatures + certificate chain + nonce + PCR extraction as a standalone checker API
 - `facts-node/server.ts` exposes a public mapping from PCRs to repo/image metadata
 - `ztbrowser-chrome-extension/` verifies attestation docs inside the extension, queries facts-node, and flips the lock icon
+- `ztbrowser-chrome-extension/verifier/` contains the extension's attestation verification engine
 
 ## Install
 
@@ -74,4 +75,4 @@ This test still starts the standalone checker API with demo root trust, checks `
 
 - Facts-node is metadata mapping, not cryptographic proof.
 - `demo-service-repo/README.md` contains Docker + Nitro CLI commands for generating real EIF PCR measurements.
-- `exampleserver.ts` and `demo-service-repo/server.js` both sign attestation docs per-request nonce (Nitro-shaped simulation mode).
+- `demo-service-repo/exampleserver.ts` and `micrus/demo.py` both sign attestation docs per-request nonce (Nitro-shaped simulation mode).
