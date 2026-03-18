@@ -106,8 +106,8 @@ async function run(): Promise<void> {
 
   const facts = startProcess(['facts-node/server.ts'], { PORT: factsPort });
   const checker = startProcess(['clientsidechecker.ts'], { PORT: checkerPort, TRUST_ROOT_CERT_PATHS: demoRootPath });
-  const exampleGood = startProcess(['exampleserver.ts'], { MODE: 'good', PORT: goodPort });
-  const exampleBad = startProcess(['exampleserver.ts'], { MODE: 'bad', PORT: badPort });
+  const exampleGood = startProcess(['demo-service-repo/exampleserver.ts'], { MODE: 'good', PORT: goodPort });
+  const exampleBad = startProcess(['demo-service-repo/exampleserver.ts'], { MODE: 'bad', PORT: badPort });
 
   try {
     await sleep(2500);

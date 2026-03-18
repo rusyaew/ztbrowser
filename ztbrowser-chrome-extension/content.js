@@ -1,5 +1,4 @@
 const FACTS_NODE_URLS = ['http://localhost:7777'];
-const VERIFY_URL = 'http://localhost:3000/verify';
 
 function setState(patch) {
   chrome.storage.local.set(patch);
@@ -7,6 +6,19 @@ function setState(patch) {
 
 function updateIcon(locked) {
   chrome.runtime.sendMessage({ locked: Boolean(locked) });
+}
+
+function sendRuntimeMessage(message) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+
+      resolve(response);
+    });
+  });
 }
 
 function generateNonceHex(bytes = 32) {
@@ -33,22 +45,24 @@ async function fetchAttestation(nonce) {
 }
 
 async function verifyAttestation(platform, nonceSent, attestationDocB64) {
-  const response = await fetch(VERIFY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  const response = await sendRuntimeMessage({
+    type: 'verify-attestation',
+    payload: {
       platform,
       nonce_sent: nonceSent,
       attestation_doc_b64: attestationDocB64
-    })
+    }
   });
 
-  const json = await response.json();
-  if (!response.ok) {
-    throw new Error(json.reason || `verify_http_${response.status}`);
+  if (!response || typeof response !== 'object') {
+    throw new Error('verify_unavailable');
   }
 
-  return json;
+  if (!response.ok) {
+    throw new Error(response.json?.reason || 'verification_failed');
+  }
+
+  return response.json;
 }
 
 async function lookupFactsForPcrs(pcrs) {
