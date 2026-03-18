@@ -14,6 +14,7 @@ from cryptography.x509 import load_pem_x509_certificate
 app = Flask(__name__)
 
 MODE = {"value": "verified"}
+ATTESTATION_MODE = {"value": os.environ.get("ATTESTATION_MODE", "valid").strip().lower()}
 DB_FILE = "password_store.json"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,9 @@ OCI_IMAGE_DIGEST = os.environ.get('OCI_IMAGE_DIGEST',
     'sha256:1111111111111111111111111111111111111111111111111111111111111111')
 WORKLOAD_ID = os.environ.get('WORKLOAD_ID', 'demo-workload-fixture')
 MODULE_ID = os.environ.get('MODULE_ID', 'i-demo-instance-enc-demo')
+
+if ATTESTATION_MODE["value"] not in ("valid", "tampered"):
+    ATTESTATION_MODE["value"] = "valid"
 
 
 def normalize_pcr_hex(value: str, fallback_byte: str) -> str:
@@ -107,7 +111,7 @@ def build_attestation_doc(nonce: str) -> str:
         canonical=True
     )
 
-    if MODE['value'] == 'unverified':
+    if ATTESTATION_MODE['value'] == 'tampered':
         tampered = bytearray(cose_doc)
         tampered[-1] = tampered[-1] ^ 0xFF
         return base64.b64encode(bytes(tampered)).decode()
@@ -168,6 +172,7 @@ HTML = """
     </div>
 
     <div class="small">Attestation endpoint: <code>POST /.well-known/attestation</code></div>
+    <div class="small">Attestation mode: <code>{{ attestation_mode }}</code></div>
 
     <form id="form" method="POST" action="/submit">
         <input
@@ -239,7 +244,11 @@ def save_records(records):
 
 @app.get("/")
 def index():
-    return render_template_string(HTML, mode=MODE["value"])
+    return render_template_string(
+        HTML,
+        mode=MODE["value"],
+        attestation_mode=ATTESTATION_MODE["value"],
+    )
 
 
 @app.get("/set-mode")
@@ -247,7 +256,19 @@ def set_mode():
     m = (request.args.get("mode") or "").lower()
     if m in ("verified", "unverified"):
         MODE["value"] = m
+        ATTESTATION_MODE["value"] = "valid" if m == "verified" else "tampered"
     return redirect(url_for("index"))
+
+
+@app.post("/admin/attestation-mode")
+def set_attestation_mode():
+    body = request.get_json(silent=True) or {}
+    mode = str(body.get("mode", "")).strip().lower()
+    if mode not in ("valid", "tampered"):
+        return jsonify({"ok": False, "error": "Unsupported attestation mode."}), 400
+
+    ATTESTATION_MODE["value"] = mode
+    return jsonify({"ok": True, "attestation_mode": ATTESTATION_MODE["value"]})
 
 
 @app.post("/.well-known/attestation")
@@ -309,4 +330,5 @@ def records():
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 9999))
-    app.run(port=port, debug=True)
+    debug = os.environ.get('FLASK_DEBUG', '').strip().lower() in ('1', 'true', 'yes', 'on')
+    app.run(host="0.0.0.0", port=port, debug=debug)
