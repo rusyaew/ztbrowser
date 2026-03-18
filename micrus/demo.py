@@ -260,17 +260,6 @@ def set_mode():
     return redirect(url_for("index"))
 
 
-@app.post("/admin/attestation-mode")
-def set_attestation_mode():
-    body = request.get_json(silent=True) or {}
-    mode = str(body.get("mode", "")).strip().lower()
-    if mode not in ("valid", "tampered"):
-        return jsonify({"ok": False, "error": "Unsupported attestation mode."}), 400
-
-    ATTESTATION_MODE["value"] = mode
-    return jsonify({"ok": True, "attestation_mode": ATTESTATION_MODE["value"]})
-
-
 @app.post("/.well-known/attestation")
 def attestation():
     body = request.get_json(silent=True) or {}

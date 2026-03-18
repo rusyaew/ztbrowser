@@ -13,6 +13,19 @@ Minimal Python demo service for the `ztbrowser` attestation flow.
 
 This is a demo service, not a real Nitro enclave. By default it signs simulated attestation documents using the demo PKI under `fixtures/demo-pki/`.
 
+## Future direction for micrus
+
+This demo can evolve into an attestation-aware login application.
+
+A likely next step is:
+
+1. The browser or extension requests `POST /.well-known/attestation`.
+2. The checker verifies the attestation signature, certificate chain, nonce, and PCR values.
+3. The UI allows sensitive actions such as login, registration, or secret submission only after verification succeeds.
+4. The server stores user records safely and returns a session token for later authenticated requests.
+
+In that model, `micrus` becomes more than a password form demo: it becomes a small application where browser verification is part of the trust decision before accepting credentials or issuing session state.
+
 ## Local setup
 
 ```bash
@@ -52,12 +65,6 @@ By default, the page toggle also drives the cryptographic verdict:
 
 - page `verified` -> attestation mode `valid`
 - page `unverified` -> attestation mode `tampered`
-
-To force a specific attestation mode at startup, run:
-
-```bash
-docker run --rm -p 9999:3000 -e ATTESTATION_MODE=tampered micrus-demo
-```
 
 ## Docker
 
