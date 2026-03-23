@@ -265,8 +265,10 @@ ensure_instance_running() {
     esac
   fi
 
+  # Waiting for "running" is sufficient here because the next phase performs a real SSH bootstrap
+  # and then verifies the live HTTP surface. EC2 status checks can lag behind actual SSH readiness
+  # by several minutes, which makes the automation look stuck even though deployment can proceed.
   aws_cli ec2 wait instance-running --instance-ids "$instance_id"
-  aws_cli ec2 wait instance-status-ok --instance-ids "$instance_id"
   printf '%s\n' "$instance_id"
 }
 

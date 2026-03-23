@@ -45,10 +45,13 @@ ensure_local_key_permissions
 ssh_cmd=(ssh -o StrictHostKeyChecking=accept-new -i "$LOCAL_KEY_PATH" "$SSH_USER@$host")
 remote_parent_dir="$(dirname "$HOST_REPO_DIR")"
 
+# Fresh AL2023 instances do not have the deployment toolchain yet.
+# Bootstrap the raw host packages first so the repo clone and later host-side scripts can run.
+"${ssh_cmd[@]}" "if ! command -v git >/dev/null 2>&1 || ! command -v nitro-cli >/dev/null 2>&1 || ! command -v docker >/dev/null 2>&1 || ! command -v tmux >/dev/null 2>&1; then sudo dnf install aws-nitro-enclaves-cli aws-nitro-enclaves-cli-devel docker git tmux rust cargo -y && sudo usermod -aG ne ec2-user && sudo usermod -aG docker ec2-user && sudo systemctl enable --now docker; fi"
+
 # Keep the host checkout deterministic: the instance should run the exact repo ref requested by the caller.
 "${ssh_cmd[@]}" "mkdir -p '$remote_parent_dir' && if [ ! -d '$HOST_REPO_DIR/.git' ]; then rm -rf '$HOST_REPO_DIR' && git clone https://github.com/rusyaew/ztbrowser.git '$HOST_REPO_DIR'; fi"
 "${ssh_cmd[@]}" "cd '$HOST_REPO_DIR' && git fetch origin --tags && git checkout -B deploy '$remote_ref'"
-"${ssh_cmd[@]}" "cd '$HOST_REPO_DIR' && if ! command -v nitro-cli >/dev/null 2>&1 || ! command -v docker >/dev/null 2>&1 || ! command -v tmux >/dev/null 2>&1; then ./scripts/aws-prepare-parent.sh; fi"
 "${ssh_cmd[@]}" "sudo tee /etc/nitro_enclaves/allocator.yaml >/dev/null <<'YAML'
 ---
 memory_mib: 2048
