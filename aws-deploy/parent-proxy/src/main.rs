@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -17,11 +18,8 @@ use tokio_vsock::{VsockAddr, VsockStream};
 const DEFAULT_BIND_ADDR: &str = "0.0.0.0:9999";
 const DEFAULT_ENCLAVE_CID: u32 = 16;
 const DEFAULT_ENCLAVE_PORT: u32 = 5005;
+const DEFAULT_PROVENANCE_PATH: &str = "aws-deploy/provenance.example.json";
 const DEFAULT_MEASUREMENTS_PATH: &str = "aws-deploy/measurements.example.json";
-const DEFAULT_WORKLOAD_ID: &str = "ztbrowser-aws-nitro";
-const DEFAULT_REPO_URL: &str = "https://github.com/rusyaew/ztbrowser";
-const DEFAULT_OCI_IMAGE_DIGEST: &str =
-    "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 
 #[derive(Clone)]
 struct AppState {
@@ -39,15 +37,32 @@ struct Config {
 struct WorkloadMetadata {
     workload_id: String,
     repo_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    project_repo_url: Option<String>,
     oci_image_digest: String,
     eif_pcrs: PcrSet,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct PcrSet {
     pcr0: String,
     pcr1: String,
     pcr2: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pcr8: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProvenanceManifest {
+    workload_id: String,
+    repo_url: String,
+    #[serde(default)]
+    project_repo_url: Option<String>,
+    oci_image_digest: String,
+    pcr0: String,
+    pcr1: String,
+    pcr2: String,
+    #[serde(default)]
     pcr8: Option<String>,
 }
 
@@ -112,9 +127,15 @@ async fn main() -> Result<()> {
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| DEFAULT_BIND_ADDR.to_string());
     let enclave_cid = read_u32_env("ENCLAVE_CID", DEFAULT_ENCLAVE_CID)?;
     let enclave_port = read_u32_env("ENCLAVE_PORT", DEFAULT_ENCLAVE_PORT)?;
-    let measurements_path =
-        env::var("MEASUREMENTS_PATH").unwrap_or_else(|_| DEFAULT_MEASUREMENTS_PATH.to_string());
-    let workload = load_workload_metadata(&measurements_path)?;
+    let provenance_path = env::var("PROVENANCE_PATH").unwrap_or_else(|_| DEFAULT_PROVENANCE_PATH.to_string());
+    let measurements_path = env::var("MEASUREMENTS_PATH").ok().or_else(|| {
+        if Path::new(DEFAULT_MEASUREMENTS_PATH).exists() {
+            Some(DEFAULT_MEASUREMENTS_PATH.to_string())
+        } else {
+            None
+        }
+    });
+    let workload = load_workload_metadata(&provenance_path, measurements_path.as_deref())?;
 
     let state = AppState {
         config: Arc::new(Config {
@@ -139,7 +160,10 @@ async fn main() -> Result<()> {
     );
     println!("Workload ID: {}", state.config.workload.workload_id);
     println!("Repo URL: {}", state.config.workload.repo_url);
-    println!("Measurements file: {measurements_path}");
+    println!("Provenance file: {provenance_path}");
+    if let Some(path) = measurements_path {
+        println!("Measurements file: {path}");
+    }
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
@@ -290,45 +314,54 @@ fn read_u32_env(key: &str, default: u32) -> Result<u32> {
     }
 }
 
-fn load_workload_metadata(path: &str) -> Result<WorkloadMetadata> {
-    let raw = fs::read_to_string(path).with_context(|| format!("Could not read {path}"))?;
-    let value: Value =
-        serde_json::from_str(&raw).with_context(|| format!("Could not parse {path}"))?;
+fn load_workload_metadata(provenance_path: &str, measurements_path: Option<&str>) -> Result<WorkloadMetadata> {
+    let provenance = load_provenance_manifest(provenance_path)?;
+    let provenance_pcrs = PcrSet {
+        pcr0: normalize_pcr_hex(&provenance.pcr0)?,
+        pcr1: normalize_pcr_hex(&provenance.pcr1)?,
+        pcr2: normalize_pcr_hex(&provenance.pcr2)?,
+        pcr8: provenance.pcr8.as_deref().map(normalize_pcr_hex).transpose()?,
+    };
 
-    let measurements = value
-        .get("Measurements")
-        .or_else(|| value.get("measurements"));
-    let eif_pcrs = value.get("eif_pcrs").or_else(|| value.get("pcrs"));
-
-    let workload_id = env::var("WORKLOAD_ID").unwrap_or_else(|_| {
-        read_string(&value, "workload_id").unwrap_or_else(|| DEFAULT_WORKLOAD_ID.to_string())
-    });
-    let repo_url = env::var("REPO_URL").unwrap_or_else(|_| {
-        read_string(&value, "repo_url").unwrap_or_else(|| DEFAULT_REPO_URL.to_string())
-    });
-    let oci_image_digest = env::var("OCI_IMAGE_DIGEST").unwrap_or_else(|_| {
-        read_string(&value, "oci_image_digest")
-            .unwrap_or_else(|| DEFAULT_OCI_IMAGE_DIGEST.to_string())
-    });
-
-    let pcr0 = read_pcr(&value, measurements, eif_pcrs, "pcr0", "PCR0")
-        .context("Missing PCR0 in measurements file")?;
-    let pcr1 = read_pcr(&value, measurements, eif_pcrs, "pcr1", "PCR1")
-        .context("Missing PCR1 in measurements file")?;
-    let pcr2 = read_pcr(&value, measurements, eif_pcrs, "pcr2", "PCR2")
-        .context("Missing PCR2 in measurements file")?;
-    let pcr8 = read_pcr(&value, measurements, eif_pcrs, "pcr8", "PCR8").ok();
+    if let Some(path) = measurements_path {
+        let measured_pcrs = load_measurement_pcrs(path)?;
+        if provenance_pcrs.pcr0 != measured_pcrs.pcr0
+            || provenance_pcrs.pcr1 != measured_pcrs.pcr1
+            || provenance_pcrs.pcr2 != measured_pcrs.pcr2
+            || provenance_pcrs.pcr8 != measured_pcrs.pcr8
+        {
+            bail!("Provenance manifest PCRs do not match measurements file {path}");
+        }
+    }
 
     Ok(WorkloadMetadata {
-        workload_id,
-        repo_url,
-        oci_image_digest,
-        eif_pcrs: PcrSet {
-            pcr0,
-            pcr1,
-            pcr2,
-            pcr8,
-        },
+        workload_id: provenance.workload_id,
+        repo_url: provenance.repo_url,
+        project_repo_url: provenance.project_repo_url,
+        oci_image_digest: provenance.oci_image_digest,
+        eif_pcrs: provenance_pcrs,
+    })
+}
+
+fn load_provenance_manifest(path: &str) -> Result<ProvenanceManifest> {
+    let raw = fs::read_to_string(path).with_context(|| format!("Could not read {path}"))?;
+    serde_json::from_str(&raw).with_context(|| format!("Could not parse provenance manifest {path}"))
+}
+
+fn load_measurement_pcrs(path: &str) -> Result<PcrSet> {
+    let raw = fs::read_to_string(path).with_context(|| format!("Could not read {path}"))?;
+    let value: Value = serde_json::from_str(&raw).with_context(|| format!("Could not parse {path}"))?;
+    let measurements = value.get("Measurements").or_else(|| value.get("measurements"));
+    let eif_pcrs = value.get("eif_pcrs").or_else(|| value.get("pcrs"));
+
+    Ok(PcrSet {
+        pcr0: read_pcr(&value, measurements, eif_pcrs, "pcr0", "PCR0")
+            .context("Missing PCR0 in measurements file")?,
+        pcr1: read_pcr(&value, measurements, eif_pcrs, "pcr1", "PCR1")
+            .context("Missing PCR1 in measurements file")?,
+        pcr2: read_pcr(&value, measurements, eif_pcrs, "pcr2", "PCR2")
+            .context("Missing PCR2 in measurements file")?,
+        pcr8: read_pcr(&value, measurements, eif_pcrs, "pcr8", "PCR8").ok(),
     })
 }
 

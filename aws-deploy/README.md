@@ -1,9 +1,13 @@
 # AWS Nitro deployment path
 
-This folder contains the real Nitro deployment components that complement the local Node demo:
+This folder now contains only the AWS-facing integration pieces that complement the canonical enclave repo:
 
 - `parent-proxy/`: public HTTP service that runs on the EC2 parent instance
-- `enclave-server/`: enclave-only attestation worker that requests a real NSM attestation document
+- `provenance.example.json`: example of the canonical release manifest consumed by the parent proxy
+
+The measured enclave source of truth now lives in:
+
+- `https://github.com/rusyaew/ztinfra-enclaveproducedhtml`
 
 The public contract stays aligned with the existing browser flow:
 
@@ -14,33 +18,29 @@ The parent proxy forwards nonce requests to the enclave over `vsock`, then retur
 
 - `platform: aws_nitro_eif`
 - `nonce`: echoed nonce
-- `workload`: PCR transparency metadata
+- `workload`: metadata loaded from canonical `provenance.json`
 - `evidence.nitro_attestation_doc_b64`: real AWS-root-backed Nitro attestation doc
 
-## Measurements file
+## Canonical deploy flow
 
-The parent proxy can read either:
-
-1. a simple JSON file like `measurements.example.json`, or
-2. raw `nitro-cli describe-eif --output-format json` output
-
-Recommended build flow:
+1. Fetch a tagged enclave release:
 
 ```bash
-scripts/aws-build-enclave.sh
+scripts/fetch-enclave-release.sh <release-tag>
 ```
 
-That produces:
-
-- `aws-deploy/build/ztbrowser-enclave.eif`
-- `aws-deploy/build/describe-eif.json`
-
-Then run the parent proxy with:
+2. Run the enclave from the downloaded EIF:
 
 ```bash
+scripts/aws-run-enclave.sh
+```
+
+3. Run the parent proxy with canonical metadata from the downloaded manifest:
+
+```bash
+PROVENANCE_PATH=aws-deploy/build/provenance.json \
 MEASUREMENTS_PATH=aws-deploy/build/describe-eif.json \
-WORKLOAD_ID=ztbrowser-aws-nitro \
-REPO_URL=https://github.com/rusyaew/ztbrowser \
-OCI_IMAGE_DIGEST=sha256:... \
 cargo run --release --manifest-path aws-deploy/parent-proxy/Cargo.toml
 ```
+
+If both `PROVENANCE_PATH` and `MEASUREMENTS_PATH` are provided, the parent proxy validates that their PCRs match before serving traffic.

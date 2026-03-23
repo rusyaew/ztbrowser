@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 type FactsRow = {
   workload_id: string;
   repo_url: string;
+  project_repo_url?: string;
   oci_image_digest: string;
   pcr0: string;
   pcr1: string;
@@ -15,6 +16,12 @@ type FactsRow = {
   nitro_cli_version?: string;
   build_timestamp?: string;
   last_updated?: string;
+  release_tag?: string;
+  commit_sha?: string;
+  eif_sha256?: string;
+  describe_eif_sha256?: string;
+  release_url?: string;
+  canonical?: boolean;
   notes?: string;
 };
 
@@ -31,8 +38,7 @@ function normalizeHex(value: string | null | undefined): string | null {
 
 function loadFacts(): FactsRow[] {
   const raw = fs.readFileSync(dbPath, 'utf8');
-  const parsed = JSON.parse(raw) as FactsRow[];
-  return parsed;
+  return JSON.parse(raw) as FactsRow[];
 }
 
 function pcrTupleMatches(row: FactsRow, query: { pcr0?: string; pcr1?: string; pcr2?: string; pcr8?: string | null }): boolean {
@@ -89,12 +95,19 @@ app.get('/', (_req, res) => {
     .map((row) => {
       const cells = [
         row.workload_id,
+        String(Boolean(row.canonical)),
         `<a href="${row.repo_url}" target="_blank" rel="noreferrer">${row.repo_url}</a>`,
+        row.project_repo_url ? `<a href="${row.project_repo_url}" target="_blank" rel="noreferrer">${row.project_repo_url}</a>` : '',
+        row.release_tag ?? '',
+        row.commit_sha ?? '',
         row.oci_image_digest,
+        row.eif_sha256 ?? '',
+        row.describe_eif_sha256 ?? '',
         row.pcr0,
         row.pcr1,
         row.pcr2,
         row.pcr8 ?? '',
+        row.release_url ? `<a href="${row.release_url}" target="_blank" rel="noreferrer">release</a>` : '',
         row.last_updated ?? ''
       ]
         .map((value) => `<td>${value}</td>`)
@@ -111,26 +124,33 @@ app.get('/', (_req, res) => {
   <style>
     body { font-family: sans-serif; margin: 16px; }
     .table-wrap { overflow: auto; border: 1px solid #ddd; max-height: 75vh; }
-    table { border-collapse: collapse; min-width: 1500px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    table { border-collapse: collapse; min-width: 2600px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
     th { background: #f5f5f5; position: sticky; top: 0; }
-    td:nth-child(n+3) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    td:nth-child(n+5) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
   </style>
 </head>
 <body>
   <h1>ZTBrowser Facts Node</h1>
-  <p>Public mapping of workload source to EIF PCR facts.</p>
+  <p>Public mapping of workload source to EIF PCR facts and release provenance.</p>
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>workload_id</th>
+          <th>canonical</th>
           <th>repo_url</th>
+          <th>project_repo_url</th>
+          <th>release_tag</th>
+          <th>commit_sha</th>
           <th>oci_image_digest</th>
+          <th>eif_sha256</th>
+          <th>describe_eif_sha256</th>
           <th>PCR0</th>
           <th>PCR1</th>
           <th>PCR2</th>
           <th>PCR8</th>
+          <th>release_url</th>
           <th>last_updated</th>
         </tr>
       </thead>

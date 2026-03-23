@@ -41,6 +41,9 @@ function readCborValue(bytes, offset) {
   const initial = bytes[offset];
   const majorType = initial >> 5;
   const additionalInfo = initial & 0x1f;
+  if (additionalInfo === 31) {
+    return readIndefiniteCborValue(bytes, offset + 1, majorType);
+  }
   const lengthInfo = readCborLength(bytes, offset + 1, additionalInfo);
   const nextOffset = lengthInfo.nextOffset;
 
@@ -99,6 +102,71 @@ function readCborValue(bytes, offset) {
   }
 }
 
+function readIndefiniteCborValue(bytes, offset, majorType) {
+  switch (majorType) {
+    case 2: {
+      const parts = [];
+      let cursor = offset;
+      while (!isBreakStop(bytes, cursor)) {
+        const decoded = readCborValue(bytes, cursor);
+        if (!(decoded.value instanceof Uint8Array)) {
+          throw new AttestationError('invalid_doc', 'Indefinite byte string contains a non-byte-string chunk');
+        }
+        parts.push(decoded.value);
+        cursor = decoded.offset;
+      }
+      return { value: concatBytes(...parts), offset: cursor + 1 };
+    }
+    case 3: {
+      let output = '';
+      let cursor = offset;
+      while (!isBreakStop(bytes, cursor)) {
+        const decoded = readCborValue(bytes, cursor);
+        if (typeof decoded.value !== 'string') {
+          throw new AttestationError('invalid_doc', 'Indefinite text string contains a non-text chunk');
+        }
+        output += decoded.value;
+        cursor = decoded.offset;
+      }
+      return { value: output, offset: cursor + 1 };
+    }
+    case 4: {
+      const items = [];
+      let cursor = offset;
+      while (!isBreakStop(bytes, cursor)) {
+        const decoded = readCborValue(bytes, cursor);
+        items.push(decoded.value);
+        cursor = decoded.offset;
+      }
+      return { value: items, offset: cursor + 1 };
+    }
+    case 5: {
+      const map = new Map();
+      let cursor = offset;
+      while (!isBreakStop(bytes, cursor)) {
+        const key = readCborValue(bytes, cursor);
+        if (isBreakStop(bytes, key.offset)) {
+          throw new AttestationError('invalid_doc', 'Indefinite map terminated after key without value');
+        }
+        const value = readCborValue(bytes, key.offset);
+        map.set(key.value, value.value);
+        cursor = value.offset;
+      }
+      return { value: map, offset: cursor + 1 };
+    }
+    default:
+      throw new AttestationError('invalid_doc', `Unsupported indefinite-length CBOR major type: ${majorType}`);
+  }
+}
+
+function isBreakStop(bytes, offset) {
+  if (offset >= bytes.length) {
+    throw new AttestationError('invalid_doc', 'Unexpected end of CBOR input');
+  }
+
+  return bytes[offset] === 0xff;
+}
+
 function readCborLength(bytes, offset, additionalInfo) {
   if (additionalInfo < 24) {
     return { value: additionalInfo, nextOffset: offset };
@@ -129,7 +197,7 @@ function readCborLength(bytes, offset, additionalInfo) {
     };
   }
 
-  throw new AttestationError('invalid_doc', 'Indefinite-length CBOR values are not supported');
+  throw new AttestationError('invalid_doc', 'Unsupported CBOR additional info');
 }
 
 function readCborSimpleValue(bytes, additionalInfo, offset) {

@@ -1,6 +1,7 @@
 {
   "workload_id": "ztbrowser-aws-nitro",
-  "repo_url": "https://github.com/rusyaew/ztbrowser",
+  "repo_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
+  "project_repo_url": "https://github.com/rusyaew/ztbrowser",
   "oci_image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "eif_pcrs": {
     "pcr0": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
