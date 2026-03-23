@@ -22,6 +22,15 @@
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         word-break: break-all;
       }
+      #debug {
+        white-space: pre-wrap;
+        font-size: 11px;
+        max-height: 240px;
+        overflow: auto;
+        border-top: 1px solid #ddd;
+        padding-top: 8px;
+        margin-top: 8px;
+      }
       .ok { color: #0b7a30; }
       .bad { color: #b42318; }
     </style>
@@ -34,6 +43,7 @@
     <div id="repo" class="row mono"></div>
     <div id="digest" class="row mono"></div>
     <div id="pcrs" class="row mono"></div>
+    <div id="debug" class="row mono"></div>
     <script src="popup.js"></script>
   </body>
 </html>
