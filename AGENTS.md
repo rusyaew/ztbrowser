@@ -24,6 +24,9 @@
 ## AWS CLI automation
 
 - Local EC2 orchestration lives under `scripts/aws-cli/`.
+- The operator-facing terminal UI lives under `src/ztdeploy/`.
+- Shared deployment definitions live in `deploy/catalog.yml`.
+- Personal deployment definitions live in `~/.config/ztdeploy/config.yml`.
 - The current defaults are intentional and presentation-tested:
   - `us-east-1`
   - `m5.xlarge`
@@ -37,6 +40,9 @@
   - `--pause` downgrades cleanup to stop
 - `deploy-release.sh` is the persistent-host entrypoint:
   - it assumes the instance already exists and leaves it running
+- `ztdeploy` must continue to expose the same deployment backend as visible explicit stages:
+  - do not regress it into a single opaque `full-deploy.sh` subprocess
+  - do not hide raw stdout/stderr when runs fail
 - The deploy IAM policy is intentionally separate from IAM bootstrap:
   - deploy profile needs EC2 + SSM read permissions only
   - `bootstrap-iam.sh` must be run with an already-admin-capable profile

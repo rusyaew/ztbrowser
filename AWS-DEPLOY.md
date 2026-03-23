@@ -173,6 +173,39 @@ AWS_PROFILE=ztbrowser scripts/aws-cli/full-deploy.sh --release-tag v0.1.3 --paus
 
 That stops the instance instead of terminating it.
 
+## Operator TUI
+
+The same automation surface is available through a stage-aware terminal UI:
+
+```bash
+npm run dev:deploy-tui
+```
+
+or:
+
+```bash
+./scripts/run-ztdeploy.sh
+```
+
+This TUI sits on top of `scripts/aws-cli/` and exposes:
+
+- deployment repo selection
+- deployment method selection
+- deployment action selection:
+  - `verify`: deploy, verify, then obey cleanup policy
+  - `deploy`: deploy, verify, and keep the instance running
+- release tag and AWS profile editing
+- confirmation before any command is executed
+- stage-by-stage progress
+- a full live stdout/stderr console
+- a deployments screen that shows managed instance IDs, states, and public IPs, and can stop or terminate them
+- persisted logs in `~/.local/state/ztdeploy/runs/`
+
+Default cleanup in the TUI matches the shell scripts:
+
+- `terminate` by default
+- `pause` if you explicitly switch cleanup mode in the settings dialog
+
 ### Reuse key for existing instances
 
 Instance reuse is keyed on these tags:

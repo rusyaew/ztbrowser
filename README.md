@@ -105,3 +105,48 @@ Reusable instance deploy:
 AWS_PROFILE=ztbrowser scripts/aws-cli/ensure-instance.sh
 AWS_PROFILE=ztbrowser scripts/aws-cli/deploy-release.sh --host <public-ip> --release-tag v0.1.3
 ```
+
+## ztdeploy TUI
+
+`dev/nika` also ships an operator-facing deployment UI built with TypeScript, React, and Ink.
+
+Start it from the repo root:
+
+```bash
+npm run dev:deploy-tui
+```
+
+or:
+
+```bash
+./scripts/run-ztdeploy.sh
+```
+
+What it does:
+
+- shows deployment repos from `deploy/catalog.yml`
+- lets operators add personal repos in `~/.config/ztdeploy/config.yml`
+- exposes deployment method selection, deployment action, release tag, AWS profile, SSH CIDR overrides, and cleanup mode
+- runs the existing `scripts/aws-cli/` automation as explicit stages instead of one opaque subprocess
+- persists run logs under `~/.local/state/ztdeploy/runs/`
+- includes a deployments view that lists managed EC2 instances with their public IPs and lets operators stop or terminate them
+
+Useful keys:
+
+- `↑/↓`: change selected repo
+- `m`: choose method
+- `e`: edit run settings
+- `o`: toggle run action between `verify` and `deploy`
+- `d`: open the managed deployments list
+- `a`: add a personal deployment repo
+- `u`: publish the selected local repo into the shared repo catalog
+- `r`: open run confirmation and execute
+- `q`: quit when no run is active
+
+Non-interactive helpers:
+
+```bash
+node bin/ztdeploy.mjs validate
+node bin/ztdeploy.mjs catalog list
+node bin/ztdeploy.mjs init
+```
