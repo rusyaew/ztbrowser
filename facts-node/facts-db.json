@@ -16,17 +16,22 @@
   },
   {
     "workload_id": "ztbrowser-aws-nitro",
-    "repo_url": "https://github.com/rusyaew/ztbrowser",
+    "repo_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
     "project_repo_url": "https://github.com/rusyaew/ztbrowser",
-    "oci_image_digest": "sha256:9bfb290114b83b7f9e0492be94f2507c8a21a97ee9e12d50a612cc2d98ed97f3",
-    "pcr0": "a19eb046d0161759f484aaf60e9916b120f4135980f5e5ba821e4c4dbec2b129047ce07b491e6785c3bb76f60a5e0c3a",
-    "pcr1": "4b4d5b3661b3efc12920900c80e126e4ce783c522de6c02a2a5bf7af3a2b9327b86776f188e4be1c1c404a129dbda493",
-    "pcr2": "7c5612a56c6a7a1534569a38ef2904cca3bb4aadd7fb415030624ef2e947a0dec0fccef64ce7f69d895c499d41c61bdd",
-    "pcr8": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "oci_image_digest": "sha256:a4f60a1fbb55e42a5e05a48defb98925d6c958704cb152e09e91fcfa2b34d45f",
+    "pcr0": "64dc4b5d65cd2cd033ef9374f3dd2d23d5dc27e880b1b526c416ed7403ef64a4a6c7c6a94c920aa7c1d0a50e9d793467",
+    "pcr1": "0343b056cd8485ca7890ddd833476d78460aed2aa161548e4e26bedf321726696257d623e8805f3f605946b3d8b0c6aa",
+    "pcr2": "2dfa410afb14fd5a43c2d1daf9791cebcf7fc6dee10b92315901e609661b24d8b5e332f37c86cf6fa41b8073e34df90d",
+    "pcr8": null,
     "nitro_cli_version": "1.4.4",
-    "build_timestamp": "2026-03-10T17:43:49Z",
-    "last_updated": "2026-03-10T17:44:30Z",
-    "canonical": false,
-    "notes": "Pre-split historical row from the monorepo-era AWS deployment. The first canonical row will be published by ztinfra-enclaveproducedhtml release CI."
+    "build_timestamp": "2026-03-23T17:03:04Z",
+    "last_updated": "2026-03-23T17:03:04Z",
+    "release_tag": "v0.1.3",
+    "commit_sha": "88ddacaf5d618851a3c1e6e973c1c44fc4fe2d8a",
+    "eif_sha256": "5824c6a75d43d47a161c5dc0056349c65c2ce5e2d6a0fb3a825f6325a5a3233f",
+    "describe_eif_sha256": "eb883df1261693e694b6acfa9276f494ed388b54b445cc6f2ed50f4733d551cf",
+    "release_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml/releases/tag/v0.1.3",
+    "canonical": true,
+    "notes": "Canonical facts row for v0.1.3 from https://github.com/rusyaew/ztinfra-enclaveproducedhtml"
   }
 ]
