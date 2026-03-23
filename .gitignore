@@ -6,3 +6,5 @@ npm-debug.log*
 micrus/.venv/
 micrus/password_store.json
 .air
+target/
+aws-deploy/build/
