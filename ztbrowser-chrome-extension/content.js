@@ -45,6 +45,16 @@ function generateNonceHex(bytes = 32) {
     .join('');
 }
 
+function pushDebugStep(debugSteps, step, details = {}) {
+  const entry = {
+    at: new Date().toISOString(),
+    step,
+    ...details
+  };
+  debugSteps.push(entry);
+  console.log('[ZTBrowser]', step, details);
+}
+
 async function fetchAttestation(nonce) {
   const endpoint = new URL('/.well-known/attestation', window.location.origin).toString();
   const response = await extensionFetchJson(endpoint, {
@@ -57,7 +67,7 @@ async function fetchAttestation(nonce) {
     throw new Error(`attestation_http_${response.status}`);
   }
 
-  return response.json();
+  return response.json;
 }
 
 async function verifyAttestation(platform, nonceSent, attestationDocB64) {
@@ -92,7 +102,7 @@ async function lookupFactsForPcrs(pcrs) {
       if (!response.ok) {
         continue;
       }
-      const data = await response.json();
+      const data = response.json;
       if (data && data.matched && data.workload) {
         return { matched: true, node: base, workload: data.workload };
       }
@@ -102,16 +112,6 @@ async function lookupFactsForPcrs(pcrs) {
   }
 
   return { matched: false, node: null, workload: null };
-}
-
-function pushDebugStep(debugSteps, step, details = {}) {
-  const entry = {
-    at: new Date().toISOString(),
-    step,
-    ...details
-  };
-  debugSteps.push(entry);
-  console.log('[ZTBrowser]', step, details);
 }
 
 async function validate() {
@@ -184,7 +184,8 @@ async function validate() {
     console.log('[ZTBrowser] validation_success', {
       workingEnv: Boolean(verdict.workingEnv),
       codeValidated: Boolean(verdict.codeValidated),
-      factsMatched: facts.matched
+      factsMatched: facts.matched,
+      workload: facts.workload
     });
     updateIcon(locked);
   } catch (error) {
