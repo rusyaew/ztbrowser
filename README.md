@@ -45,3 +45,108 @@ MEASUREMENTS_PATH=aws-deploy/build/describe-eif.json \
 ```
 
 See `AWS-DEPLOY.md` for the full EC2 bring-up flow.
+
+## AWS CLI automation
+
+`dev/nika` carries a local AWS CLI orchestration layer under `scripts/aws-cli/`.
+
+What it does:
+
+- creates or reuses the EC2 key pair
+- creates or reuses a dedicated security group
+- keeps SSH restricted to your current public IP by default
+- allows additional SSH CIDRs with repeated `--extra-ssh-cidr`
+- creates or updates the launch template with Nitro Enclaves enabled
+- reuses an existing tagged instance when possible
+- deploys a tagged enclave release over SSH
+
+Important cleanup behavior:
+
+- `scripts/aws-cli/full-deploy.sh` terminates the instance by default after verification
+- pass `--pause` to stop the instance instead of terminating it
+- `scripts/aws-cli/deploy-release.sh` does no cleanup and leaves the instance running
+
+One-time local prerequisites:
+
+1. Install AWS CLI v2:
+
+```bash
+curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip
+cd /tmp
+unzip -q awscliv2.zip
+sudo ./aws/install
+```
+
+2. Create deploy credentials:
+
+- If you already have an admin-capable AWS CLI profile, bootstrap the deploy user entirely by CLI:
+
+```bash
+AWS_PROFILE=<admin-profile> scripts/aws-cli/bootstrap-iam.sh --profile-name ztbrowser
+```
+
+- If you have no AWS CLI credentials at all yet, that first admin credential still has to come from IAM or AWS account setup. There is no safe way to bootstrap AWS access from zero entirely inside this repo.
+
+3. Verify the deploy profile works:
+
+```bash
+AWS_PROFILE=ztbrowser scripts/aws-cli/check-prereqs.sh
+```
+
+End-to-end ephemeral deploy:
+
+```bash
+AWS_PROFILE=ztbrowser scripts/aws-cli/full-deploy.sh --release-tag v0.1.3
+```
+
+Reusable instance deploy:
+
+```bash
+AWS_PROFILE=ztbrowser scripts/aws-cli/ensure-instance.sh
+AWS_PROFILE=ztbrowser scripts/aws-cli/deploy-release.sh --host <public-ip> --release-tag v0.1.3
+```
+
+## ztdeploy TUI
+
+`dev/nika` also ships an operator-facing deployment UI built with TypeScript, React, and Ink.
+
+Start it from the repo root:
+
+```bash
+npm run dev:deploy-tui
+```
+
+or:
+
+```bash
+./scripts/run-ztdeploy.sh
+```
+
+What it does:
+
+- shows deployment repos from `deploy/catalog.yml`
+- lets operators add personal repos in `~/.config/ztdeploy/config.yml`
+- exposes deployment method selection, deployment action, release tag, AWS profile, SSH CIDR overrides, and cleanup mode
+- runs the existing `scripts/aws-cli/` automation as explicit stages instead of one opaque subprocess
+- persists run logs under `~/.local/state/ztdeploy/runs/`
+- includes a deployments view that lists managed EC2 instances with their public IPs and lets operators stop or terminate them
+
+Useful keys:
+
+- `↑/↓`: change selected repo
+- `m`: choose method
+- `e`: edit run settings
+- `o`: toggle run action between `verify` and `deploy`
+- `d`: open the managed deployments list
+- `a`: add a personal deployment repo
+- `u`: publish the selected local repo into the shared repo catalog
+- `r`: open run confirmation and execute
+- `q`: quit when no run is active
+
+Non-interactive helpers:
+
+```bash
+node bin/ztdeploy.mjs validate
+node bin/ztdeploy.mjs catalog list
+node bin/ztdeploy.mjs init
+```
