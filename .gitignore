@@ -3,3 +3,6 @@ node_modules/
 npm-debug.log*
 .claude
 .idea
+micrus/.venv/
+micrus/password_store.json
+.air
