@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev:example": "tsx exampleserver.ts",
+    "dev:example": "tsx demo-service-repo/exampleserver.ts",
     "dev:checker": "tsx clientsidechecker.ts",
     "dev:facts": "tsx facts-node/server.ts",
-    "smoke:api": "tsx scripts/smoke-api.ts"
+    "smoke:api": "tsx scripts/smoke-api.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "cbor": "^10.0.11",

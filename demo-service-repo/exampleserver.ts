@@ -14,9 +14,9 @@ app.use(cors({ origin: true }));
 const mode = process.env.MODE === 'bad' ? 'bad' : 'good';
 const port = Number(process.env.PORT ?? '9999');
 
-const rootCertPath = process.env.DEMO_ROOT_CERT_PATH ?? path.join(__dirname, 'fixtures', 'demo-pki', 'root-cert.pem');
-const leafCertPath = process.env.DEMO_LEAF_CERT_PATH ?? path.join(__dirname, 'fixtures', 'demo-pki', 'leaf-cert.pem');
-const leafKeyPath = process.env.DEMO_LEAF_KEY_PATH ?? path.join(__dirname, 'fixtures', 'demo-pki', 'leaf-key.pem');
+const rootCertPath = process.env.DEMO_ROOT_CERT_PATH ?? path.join(__dirname, 'demo-pki', 'root-cert.pem');
+const leafCertPath = process.env.DEMO_LEAF_CERT_PATH ?? path.join(__dirname, 'demo-pki', 'leaf-cert.pem');
+const leafKeyPath = process.env.DEMO_LEAF_KEY_PATH ?? path.join(__dirname, 'demo-pki', 'leaf-key.pem');
 
 const repoUrl = process.env.REPO_URL ?? 'https://github.com/example/demo-service-repo';
 const ociImageDigest =
