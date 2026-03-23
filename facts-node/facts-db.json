@@ -2,6 +2,7 @@
   {
     "workload_id": "demo-workload-fixture",
     "repo_url": "https://github.com/example/demo-service-repo",
+    "project_repo_url": "https://github.com/rusyaew/ztbrowser",
     "oci_image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
     "pcr0": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
     "pcr1": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -10,11 +11,13 @@
     "nitro_cli_version": "fixture",
     "build_timestamp": "2026-03-08T00:00:00Z",
     "last_updated": "2026-03-08T00:00:00Z",
+    "canonical": false,
     "notes": "Fixture mapping for local signature-validation demo"
   },
   {
     "workload_id": "ztbrowser-aws-nitro",
     "repo_url": "https://github.com/rusyaew/ztbrowser",
+    "project_repo_url": "https://github.com/rusyaew/ztbrowser",
     "oci_image_digest": "sha256:9bfb290114b83b7f9e0492be94f2507c8a21a97ee9e12d50a612cc2d98ed97f3",
     "pcr0": "a19eb046d0161759f484aaf60e9916b120f4135980f5e5ba821e4c4dbec2b129047ce07b491e6785c3bb76f60a5e0c3a",
     "pcr1": "4b4d5b3661b3efc12920900c80e126e4ce783c522de6c02a2a5bf7af3a2b9327b86776f188e4be1c1c404a129dbda493",
@@ -23,7 +26,7 @@
     "nitro_cli_version": "1.4.4",
     "build_timestamp": "2026-03-10T17:43:49Z",
     "last_updated": "2026-03-10T17:44:30Z",
-    "notes": "Live AWS Nitro enclave deployment on EC2 instance i-08eb0fe0066b66356 with enclave-rendered landing page"
+    "canonical": false,
+    "notes": "Pre-split historical row from the monorepo-era AWS deployment. The first canonical row will be published by ztinfra-enclaveproducedhtml release CI."
   }
 ]
-

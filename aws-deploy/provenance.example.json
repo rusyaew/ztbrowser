@@ -1,0 +1,24 @@
+{
+  "workload_id": "ztbrowser-aws-nitro",
+  "repo_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
+  "project_repo_url": "https://github.com/rusyaew/ztbrowser",
+  "release_tag": "v0.0.0-example",
+  "commit_sha": "0000000000000000000000000000000000000000",
+  "oci_image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "eif_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "describe_eif_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "nitro_cli_version": "1.4.4",
+  "nitro_cli_source_repo": "https://github.com/aws/aws-nitro-enclaves-cli.git",
+  "nitro_cli_source_tag": "v1.4.4",
+  "build_timestamp": "2026-03-23T00:00:00Z",
+  "pcr0": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "pcr1": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+  "pcr2": "222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
+  "pcr8": null,
+  "release_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml/releases/tag/v0.0.0-example",
+  "build_environment": {
+    "docker_version": "0.0.0",
+    "rust_version": "0.0.0",
+    "cargo_version": "0.0.0"
+  }
+}
