@@ -9,7 +9,7 @@ function shortHex(value) {
 }
 
 chrome.storage.local.get(
-  ['workingEnv', 'codeValidated', 'reason', 'factsMatched', 'workload', 'verifiedPcrs'],
+  ['workingEnv', 'codeValidated', 'reason', 'factsMatched', 'workload', 'verifiedPcrs', 'debugSteps'],
   (data) => {
     const workingEnv = Boolean(data.workingEnv);
     const codeValidated = Boolean(data.codeValidated);
@@ -21,6 +21,7 @@ chrome.storage.local.get(
     const repoEl = document.getElementById('repo');
     const digestEl = document.getElementById('digest');
     const pcrsEl = document.getElementById('pcrs');
+    const debugEl = document.getElementById('debug');
 
     if (statusEl) {
       statusEl.textContent = `Status: ${locked ? 'locked' : 'unlocked'} (env=${workingEnv}, code=${codeValidated})`;
@@ -50,6 +51,13 @@ chrome.storage.local.get(
         `PCR1=${shortHex(data.verifiedPcrs.pcr1)} ` +
         `PCR2=${shortHex(data.verifiedPcrs.pcr2)} ` +
         `PCR8=${shortHex(data.verifiedPcrs.pcr8)}`;
+    }
+
+    if (debugEl) {
+      const steps = Array.isArray(data.debugSteps) ? data.debugSteps : [];
+      debugEl.textContent = steps.length
+        ? `Debug:\n${steps.map((step) => JSON.stringify(step)).join('\n')}`
+        : 'Debug: n/a';
     }
   }
 );

@@ -15,13 +15,14 @@
   },
   "permissions": ["storage", "tabs"],
   "host_permissions": [
-    "http://localhost:9999/*",
-    "http://localhost:3000/*",
-    "http://localhost:7777/*"
+    "http://*/*",
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "content_scripts": [
     {
-      "matches": ["http://localhost:9999/*"],
+      "matches": ["http://*/*", "https://*/*"],
       "js": ["content.js"]
     }
   ],

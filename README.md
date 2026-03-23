@@ -73,3 +73,53 @@ This test starts all services with demo root trust, checks `MODE=good` success, 
 - Facts-node is metadata mapping, not cryptographic proof.
 - `demo-service-repo/README.md` contains Docker + Nitro CLI commands for generating real EIF PCR measurements.
 - `exampleserver.ts` and `demo-service-repo/server.js` both sign attestation docs per-request nonce (Nitro-shaped simulation mode).
+
+## Real AWS Nitro deployment
+
+The real AWS deployment path lives under `aws-deploy/`:
+
+- `aws-deploy/parent-proxy/`: public HTTP service on the EC2 parent instance
+- `aws-deploy/enclave-server/`: enclave-only `vsock` service that requests a real NSM attestation document
+
+This keeps the browser/checker contract unchanged while replacing demo signing with a real AWS-root-backed attestation document.
+
+High-level flow:
+
+1. Browser calls `POST /.well-known/attestation` on the parent instance.
+2. Parent proxy forwards `{ nonce_hex }` over `vsock` to the enclave.
+3. Enclave calls NSM and returns a real attestation document.
+4. Parent proxy responds with:
+   - `platform: aws_nitro_eif`
+   - `nonce`
+   - `workload` metadata and PCR transparency fields
+   - `evidence.nitro_attestation_doc_b64`
+
+Typical EC2 commands:
+
+```bash
+sudo dnf install aws-nitro-enclaves-cli aws-nitro-enclaves-cli-devel docker git tmux -y
+sudo usermod -aG ne ec2-user
+sudo usermod -aG docker ec2-user
+sudo systemctl enable --now docker
+```
+
+After reconnecting, configure the allocator:
+
+```bash
+sudo tee /etc/nitro_enclaves/allocator.yaml >/dev/null <<'EOF'
+---
+memory_mib: 512
+cpu_count: 2
+EOF
+sudo systemctl enable --now nitro-enclaves-allocator.service
+```
+
+Then build and run:
+
+```bash
+scripts/aws-build-enclave.sh
+scripts/aws-run-enclave.sh
+MEASUREMENTS_PATH=aws-deploy/build/describe-eif.json cargo run --release --manifest-path aws-deploy/parent-proxy/Cargo.toml
+```
+
+See [aws-deploy/README.md](/home/gleb/zt-tech/ztbrowser/aws-deploy/README.md) for the AWS-specific details.
