@@ -319,13 +319,15 @@ instance_field() {
 
 emit_instance_json() {
   local instance_id="$1"
-  local public_ip public_dns
+  local public_ip public_dns instance_type
   public_ip="$(instance_field "$instance_id" 'Reservations[0].Instances[0].PublicIpAddress')"
   public_dns="$(instance_field "$instance_id" 'Reservations[0].Instances[0].PublicDnsName')"
+  instance_type="$(instance_field "$instance_id" 'Reservations[0].Instances[0].InstanceType')"
   cat <<JSON
 {
   "instance_id": "$instance_id",
   "instance_name": "$INSTANCE_NAME",
+  "instance_type": "$instance_type",
   "public_ip": "$public_ip",
   "public_dns": "$public_dns",
   "key_name": "$KEY_NAME",

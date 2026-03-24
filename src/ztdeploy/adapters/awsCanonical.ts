@@ -137,17 +137,19 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
         const result = await api.runCommand('ensure-instance', localScript(runtime, 'ensure-instance.sh'));
         const info = JSON.parse(result.stdout.trim()) as {
           instance_id: string;
+          instance_type?: string;
           public_ip: string;
           public_dns: string;
           local_key_path?: string;
         };
         runtime.instanceId = info.instance_id;
+        runtime.instanceType = info.instance_type ?? runtime.instanceType;
         runtime.host = info.public_ip;
         runtime.publicDns = info.public_dns;
         if (info.local_key_path) {
           runtime.localKeyPath = info.local_key_path;
         }
-        await api.writeMeta({instanceId: runtime.instanceId, host: runtime.host, publicDns: runtime.publicDns});
+        await api.writeMeta({instanceId: runtime.instanceId, instanceType: runtime.instanceType, host: runtime.host, publicDns: runtime.publicDns});
       },
     },
     {

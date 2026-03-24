@@ -15,6 +15,7 @@ import type {
 export interface RunnerCallbacks {
   onStageState: (states: StageRuntimeState[]) => void;
   onLogLine: (line: string) => void;
+  onMetaPatch?: (meta: RunMeta) => void;
 }
 
 export interface RunnerResult {
@@ -77,6 +78,7 @@ export async function runStages(
   const writeMeta = async (patch: Record<string, unknown>) => {
     Object.assign(meta, patch);
     await fs.promises.writeFile(metaPath, JSON.stringify(meta, null, 2));
+    callbacks.onMetaPatch?.({...meta});
   };
 
   const emitLog = (stageId: string, message: string) => {
@@ -157,6 +159,7 @@ export async function runStages(
         success: false,
         finishedAt: new Date().toISOString(),
         instanceId: ctx.instanceId,
+        instanceType: ctx.instanceType,
         host: ctx.host,
       });
       logStream.end();
@@ -168,6 +171,7 @@ export async function runStages(
     success: true,
     finishedAt: new Date().toISOString(),
     instanceId: ctx.instanceId,
+    instanceType: ctx.instanceType,
     host: ctx.host,
   });
   logStream.end();
