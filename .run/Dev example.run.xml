@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Starts the local demo attestation service used by the browser extension flow. -->
+  <configuration default="false" name="Dev example" type="js.build_tools.npm" factoryName="npm" folderName="Demo">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="dev:example" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>

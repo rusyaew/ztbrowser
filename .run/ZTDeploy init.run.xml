@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Initializes local ztdeploy configuration and support files. -->
+  <configuration default="false" name="ZTDeploy init" type="js.build_tools.npm" factoryName="npm" folderName="Deploy">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="ztdeploy:init" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>

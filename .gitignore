@@ -8,3 +8,4 @@ micrus/password_store.json
 .air
 target/
 aws-deploy/build/
+coverage/

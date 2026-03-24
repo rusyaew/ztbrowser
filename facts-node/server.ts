@@ -33,7 +33,11 @@ function normalizeHex(value: string | null | undefined): string | null {
   if (typeof value !== 'string') {
     return null;
   }
-  return value.replace(/^0x/i, '').toLowerCase();
+  const normalized = value.replace(/^0x/i, '').toLowerCase();
+  if (/^0+$/.test(normalized)) {
+    return null;
+  }
+  return normalized;
 }
 
 function loadFacts(): FactsRow[] {

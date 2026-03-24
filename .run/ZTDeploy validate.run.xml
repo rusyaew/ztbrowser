@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Validates ztdeploy configuration and catalog wiring without performing a deploy. -->
+  <configuration default="false" name="ZTDeploy validate" type="js.build_tools.npm" factoryName="npm" folderName="Deploy">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="ztdeploy:validate" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>

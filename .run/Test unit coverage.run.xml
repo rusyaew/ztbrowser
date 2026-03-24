@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Runs the Vitest suite with V8 coverage reporting enabled. -->
+  <configuration default="false" name="Unit + integration tests coverage" type="js.build_tools.npm" factoryName="npm" folderName="Checks">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="test:unit:coverage" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>
