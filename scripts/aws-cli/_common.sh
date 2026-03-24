@@ -16,6 +16,7 @@ SECURITY_GROUP_NAME="${SECURITY_GROUP_NAME:-ztbrowser-nitro-parent-sg}"
 KEY_NAME="${KEY_NAME:-ztbrowser-nitro-key}"
 LOCAL_KEY_PATH="${LOCAL_KEY_PATH:-/home/gleb/ztbrowser-nitro-key.pem}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-m5.xlarge}"
+INSTANCE_TYPE_CANDIDATES="${INSTANCE_TYPE_CANDIDATES:-$INSTANCE_TYPE,m6i.xlarge,m6a.xlarge,m5a.xlarge,m5d.xlarge,m5n.xlarge}"
 PROXY_PORT="${PROXY_PORT:-9999}"
 AMI_SSM_PARAMETER="${AMI_SSM_PARAMETER:-/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}"
 HOST_REPO_DIR="${HOST_REPO_DIR:-/home/ec2-user/ztbrowser}"
@@ -227,8 +228,15 @@ find_managed_instance_lines() {
     --output text
 }
 
+instance_type_candidates() {
+  printf '%s\n' "$INSTANCE_TYPE_CANDIDATES" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed '/^$/d'
+}
+
 ensure_instance_running() {
-  local line_count instance_line instance_id state
+  local line_count instance_line instance_id state candidate
+  local run_output rc
+  local -a candidates=()
+  local -a capacity_failures=()
   mapfile -t lines < <(find_managed_instance_lines | sed '/^$/d')
   line_count="${#lines[@]}"
 
@@ -238,12 +246,39 @@ ensure_instance_running() {
   fi
 
   if (( line_count == 0 )); then
-    log "launching new managed Nitro parent instance"
-    instance_id="$(aws_cli ec2 run-instances \
-      --launch-template LaunchTemplateName="$LAUNCH_TEMPLATE_NAME",Version='$Default' \
-      --count 1 \
-      --query 'Instances[0].InstanceId' \
-      --output text)"
+    mapfile -t candidates < <(instance_type_candidates)
+    ((${#candidates[@]} > 0)) || die "no instance type candidates configured"
+
+    for candidate in "${candidates[@]}"; do
+      log "launching new managed Nitro parent instance with instance type $candidate"
+      set +e
+      run_output="$(aws_cli ec2 run-instances \
+        --launch-template LaunchTemplateName="$LAUNCH_TEMPLATE_NAME",Version='$Default' \
+        --instance-type "$candidate" \
+        --count 1 \
+        --query 'Instances[0].InstanceId' \
+        --output text 2>&1)"
+      rc=$?
+      set -e
+
+      if (( rc == 0 )); then
+        instance_id="$run_output"
+        [[ -n "$instance_id" && "$instance_id" != "None" ]] || die "run-instances returned success without an instance id for type $candidate"
+        log "launched instance $instance_id with instance type $candidate"
+        break
+      fi
+
+      if grep -q 'InsufficientInstanceCapacity' <<<"$run_output"; then
+        capacity_failures+=("$candidate")
+        log "capacity unavailable for $candidate, trying the next Nitro-compatible fallback"
+        continue
+      fi
+
+      printf '%s\n' "$run_output" >&2
+      die "run-instances failed for instance type $candidate"
+    done
+
+    [[ -n "${instance_id:-}" ]] || die "could not launch a parent instance due to insufficient capacity across candidate types: ${capacity_failures[*]}"
   else
     read -r instance_id state _ <<<"${lines[0]}"
     case "$state" in
@@ -268,6 +303,7 @@ ensure_instance_running() {
   # Waiting for "running" is sufficient here because the next phase performs a real SSH bootstrap
   # and then verifies the live HTTP surface. EC2 status checks can lag behind actual SSH readiness
   # by several minutes, which makes the automation look stuck even though deployment can proceed.
+  [[ -n "$instance_id" && "$instance_id" != "None" ]] || die "instance id is empty before waiting for running state"
   aws_cli ec2 wait instance-running --instance-ids "$instance_id"
   printf '%s\n' "$instance_id"
 }
