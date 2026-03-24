@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Starts the legacy standalone checker API used for direct verification and smoke compatibility checks. -->
+  <configuration default="false" name="Dev checker" type="js.build_tools.npm" factoryName="npm" folderName="Deprecated">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="dev:checker" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>

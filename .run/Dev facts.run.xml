@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Starts the facts database service used to map PCR tuples to public metadata. -->
+  <configuration default="false" name="Dev facts" type="js.build_tools.npm" factoryName="npm" folderName="Demo">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="dev:facts" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>

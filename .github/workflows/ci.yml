@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   validate:
-    name: Typecheck and Smoke API
+    name: Typecheck, Extension Tests and Smoke API
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -32,5 +32,27 @@ jobs:
       - name: Run typecheck
         run: npm run typecheck
 
+      - name: Run extension unit/integration tests
+        run: npm run test:unit
+
       - name: Run smoke API checks
         run: npm run smoke:api
+
+  deploy-render:
+    name: Deploy Render Services
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      RENDER_FACTS_DB_DEPLOY_HOOK_URL: ${{ secrets.RENDER_FACTS_DB_DEPLOY_HOOK_URL }}
+      RENDER_TEST_SERVICE_DEPLOY_HOOK_URL: ${{ secrets.RENDER_TEST_SERVICE_DEPLOY_HOOK_URL }}
+
+    steps:
+      - name: Trigger facts DB deploy
+        if: env.RENDER_FACTS_DB_DEPLOY_HOOK_URL != ''
+        run: curl --fail --silent --show-error --request POST "$RENDER_FACTS_DB_DEPLOY_HOOK_URL"
+
+      - name: Trigger demo service deploy
+        if: env.RENDER_TEST_SERVICE_DEPLOY_HOOK_URL != ''
+        run: curl --fail --silent --show-error --request POST "$RENDER_TEST_SERVICE_DEPLOY_HOOK_URL"

@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Runs the repository TypeScript typecheck without emitting build output. -->
+  <configuration default="false" name="Typecheck" type="js.build_tools.npm" factoryName="npm" folderName="Checks">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="typecheck" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>

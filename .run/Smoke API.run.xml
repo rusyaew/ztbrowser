@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Starts the local smoke flow and verifies facts node, checker, and demo service integration. -->
+  <configuration default="false" name="Smoke API" type="js.build_tools.npm" factoryName="npm" folderName="Checks">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="smoke:api" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>

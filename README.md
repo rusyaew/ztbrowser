@@ -16,9 +16,43 @@ Run locally in separate terminals:
 
 ```bash
 npm run dev:facts
-TRUST_ROOT_CERT_PATHS=./fixtures/demo-pki/root-cert.pem npm run dev:checker
 MODE=good npm run dev:example
 ```
+
+### OR
+Just run the following configurations:
+
+- `Dev facts`
+- `Dev example`
+
+And then load/reload the unpacked extension from `ztbrowser-chrome-extension/` in Chrome and open the demo page.
+
+## IDE run configurations
+
+JetBrains IDE run configurations are checked into [.run/](/Users/daniil.stankevych/Code/ztbrowser/.run).
+
+### Demo
+- `Dev facts`: starts the facts metadata service used by the extension demo.
+- `Dev example`: starts the demo attestation service used by the extension demo.
+### Checks
+- `Typecheck`: runs `tsc --noEmit`.
+- `Unit + integration tests`: runs the shared Vitest suite for extension unit and integration tests.
+- `Unit + integration tests coverage`: runs the same Vitest suite with coverage reporting.
+- `Smoke API`: runs the local end-to-end API smoke flow.
+### Deploy
+- `Dev deploy tui`: starts the deployment TUI.
+- `ZTDeploy init`: initializes local ztdeploy config.
+- `ZTDeploy validate`: validates ztdeploy config and catalog wiring.
+### Deprecated
+- `Dev checker`: starts the standalone checker API used for direct verification and smoke compatibility checks.
+  - Currtenly verifier is a part of the extension.
+
+For the current extension demo, the only configurations you usually need are in `Demo`:
+
+- `Dev facts`
+- `Dev example`
+
+If you need the old standalone `/verify` flow for compatibility testing, run `Dev checker` from `Legacy`.
 
 ## Real AWS deploy
 

@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Launches the interactive Ink-based deployment TUI from the repo root. -->
+  <configuration default="false" name="Dev deploy tui" type="js.build_tools.npm" factoryName="npm" folderName="Deploy">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="dev:deploy-tui" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>

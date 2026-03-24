@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Runs the shared Vitest suite for the extension unit and integration tests. -->
+  <configuration default="false" name="Unit + integration tests" type="js.build_tools.npm" factoryName="npm" folderName="Checks">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="test:unit" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <method v="2" />
+  </configuration>
+</component>
