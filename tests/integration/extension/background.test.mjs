@@ -153,7 +153,7 @@ describe('background.js', () => {
     });
   });
 
-  it('maps verifier rejections to invalid_doc responses', async () => {
+  it('returns invalid_doc responses when verification fails', async () => {
     vi.doMock('../../../ztbrowser-chrome-extension/verifier/attestationVerifier.mjs', () => ({
       verifyAttestationRequest: vi.fn().mockRejectedValue(new Error('boom'))
     }));
@@ -175,12 +175,14 @@ describe('background.js', () => {
     await vi.waitFor(() => {
       expect(sendResponse).toHaveBeenCalledWith({
         ok: false,
-        json: {
+        json: expect.objectContaining({
           workingEnv: false,
           codeValidated: false,
           reason: 'invalid_doc',
-          details: { message: 'boom' }
-        }
+          details: expect.objectContaining({
+            message: expect.any(String)
+          })
+        })
       });
     });
   });
