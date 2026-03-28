@@ -80,9 +80,15 @@ MEASUREMENTS_PATH=aws-deploy/build/describe-eif.json \
 
 See `AWS-DEPLOY.md` for the full EC2 bring-up flow.
 
+## AIDev course artifacts
+
+Course-specific product, spec, testing, ops, and business artifacts live under:
+
+- `docs/aiddev/`
+
 ## AWS CLI automation
 
-`dev/nika` carries a local AWS CLI orchestration layer under `scripts/aws-cli/`.
+The merged repo carries a local AWS CLI orchestration layer under `scripts/aws-cli/`.
 
 What it does:
 
@@ -142,7 +148,7 @@ AWS_PROFILE=ztbrowser scripts/aws-cli/deploy-release.sh --host <public-ip> --rel
 
 ## ztdeploy TUI
 
-`dev/nika` also ships an operator-facing deployment UI built with TypeScript, React, and Ink.
+The merged repo also ships an operator-facing deployment UI built with TypeScript, React, and Ink.
 
 Start it from the repo root:
 
