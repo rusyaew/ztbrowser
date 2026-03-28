@@ -1,0 +1,538 @@
+{
+  "product_name": "ZTBrowser",
+  "product_overview": "ZTBrowser is a developer trust platform that lets a browser verify an enclave-backed execution claim, enrich that claim with public provenance metadata, and support repeatable deployment of attested services.",
+  "features": [
+    {
+      "feature_id": "F001",
+      "general_info": {
+        "name": "Browser-visible attestation verification",
+        "overview": "The extension fetches attestation from the current origin, verifies the attestation document, and shows a lock or failure reason."
+      },
+      "goal_and_context": {
+        "business_goal": "Give users and operators a browser-visible trust decision for enclave-backed services.",
+        "user_problem": "Attestation is usually backend-oriented and difficult to verify from the browser."
+      },
+      "actors_and_roles": {
+        "primary_user": "Platform or security engineer",
+        "secondary_user": "End user consuming a trust-marked site",
+        "system_service": "ZTBrowser Chrome extension"
+      },
+      "business_rules": [
+        {
+          "rule_id": "BR001",
+          "description": "The lock is shown only after successful cryptographic verification and nonce match."
+        },
+        {
+          "rule_id": "BR002",
+          "description": "Facts lookup may enrich metadata but must never override a cryptographic verification failure."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "scenario_id": "SC001",
+          "user_story": "As a user, I want the extension to show a lock only when the attestation is valid, so that I do not trust unverifiable services.",
+          "bdd": {
+            "given": "A page origin exposes a valid Nitro attestation endpoint",
+            "and_preconditions": [
+              "The extension can fetch the endpoint",
+              "The trusted root set contains the required root certificate"
+            ],
+            "when": "The extension validates the returned attestation document for the generated nonce",
+            "then": "The extension stores workingEnv=true and codeValidated=true and shows a locked state",
+            "and_postconditions": [
+              "Verified PCRs are available for optional facts lookup"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC002",
+          "user_story": "As a user, I want invalid or malformed attestation to remain unlocked with a reason, so that failures are visible rather than silent.",
+          "bdd": {
+            "given": "A page origin returns an invalid or malformed attestation response",
+            "and_preconditions": [
+              "The extension attempts verification"
+            ],
+            "when": "The verifier detects invalid signature, invalid chain, bad payload, or unsupported platform",
+            "then": "The extension stores an unlocked state and a structured failure reason",
+            "and_postconditions": [
+              "No lock is shown"
+            ]
+          }
+        }
+      ],
+      "non_functional_requirements": [
+        {
+          "nfr_id": "NFR001",
+          "type": "security",
+          "description": "Verification must happen inside the extension runtime or another trusted local component, not in the remote page context."
+        },
+        {
+          "nfr_id": "NFR002",
+          "type": "usability",
+          "description": "Failure reasons must be inspectable through the popup and debug trace."
+        }
+      ],
+      "test_cases": [
+        {
+          "test_id": "T001",
+          "scenario_id": "SC001",
+          "setup": "Load a valid attestation document and matching nonce",
+          "action": "Call verifier entrypoint",
+          "assertion": "Lock-equivalent verdict is returned",
+          "examples": [
+            {
+              "input": {
+                "platform": "aws_nitro_eif"
+              },
+              "expected": {
+                "workingEnv": true,
+                "codeValidated": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T002",
+          "scenario_id": "SC002",
+          "setup": "Provide a tampered attestation doc",
+          "action": "Call verifier entrypoint",
+          "assertion": "Verifier returns invalid_signature",
+          "examples": [
+            {
+              "input": {
+                "tampered": true
+              },
+              "expected": {
+                "reason": "invalid_signature"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "feature_id": "F002",
+      "general_info": {
+        "name": "Facts and provenance lookup",
+        "overview": "The extension maps checker-verified PCR tuples to public workload and release metadata."
+      },
+      "goal_and_context": {
+        "business_goal": "Explain what measured workload identity the browser has verified.",
+        "user_problem": "A valid attestation document alone does not tell users which repo or release the service corresponds to."
+      },
+      "actors_and_roles": {
+        "primary_user": "Security stakeholder or auditor",
+        "secondary_user": "Platform engineer",
+        "system_service": "facts-node"
+      },
+      "business_rules": [
+        {
+          "rule_id": "BR003",
+          "description": "Facts lookup is keyed by verified PCR tuple, not by repo name or user input."
+        },
+        {
+          "rule_id": "BR004",
+          "description": "A facts miss must not invalidate a successful cryptographic verification result."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "scenario_id": "SC003",
+          "user_story": "As a reviewer, I want a verified PCR tuple to resolve to workload metadata when available, so that I can understand what was measured.",
+          "bdd": {
+            "given": "The verifier has already produced PCR values",
+            "and_preconditions": [
+              "The facts node contains a matching row"
+            ],
+            "when": "The extension queries lookup-by-pcr",
+            "then": "The extension stores factsMatched=true and workload metadata",
+            "and_postconditions": [
+              "The popup can show repo URL and image digest"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC004",
+          "user_story": "As a user, I want the extension to stay locked even when facts lookup misses, so that metadata outages do not falsify cryptographic verification.",
+          "bdd": {
+            "given": "The verifier has produced a successful verdict but the facts node has no matching row or is unavailable",
+            "and_preconditions": [
+              "The extension attempts facts lookup"
+            ],
+            "when": "No matching workload is found",
+            "then": "The extension keeps the cryptographic success state and records factsMatched=false",
+            "and_postconditions": [
+              "The popup may show no workload metadata"
+            ]
+          }
+        }
+      ],
+      "non_functional_requirements": [
+        {
+          "nfr_id": "NFR003",
+          "type": "integrity",
+          "description": "Facts rows must be treated as transparency metadata, not as a cryptographic root of trust."
+        },
+        {
+          "nfr_id": "NFR004",
+          "type": "interoperability",
+          "description": "Facts schema must support canonical release provenance fields without breaking lookup-by-pcr."
+        }
+      ],
+      "test_cases": [
+        {
+          "test_id": "T003",
+          "scenario_id": "SC003",
+          "setup": "Provide verified PCRs and a matching facts row",
+          "action": "Run content-script facts lookup",
+          "assertion": "factsMatched=true and workload metadata stored",
+          "examples": [
+            {
+              "input": {
+                "match": true
+              },
+              "expected": {
+                "factsMatched": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T004",
+          "scenario_id": "SC004",
+          "setup": "Provide verified PCRs and an unavailable or mismatching facts service",
+          "action": "Run content-script facts lookup",
+          "assertion": "lock remains based on verification and factsMatched=false",
+          "examples": [
+            {
+              "input": {
+                "match": false
+              },
+              "expected": {
+                "factsMatched": false
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "feature_id": "F003",
+      "general_info": {
+        "name": "Canonical enclave release provenance",
+        "overview": "The measured workload is owned by a dedicated enclave repo that publishes canonical artifacts and facts updates."
+      },
+      "goal_and_context": {
+        "business_goal": "Make runtime measurement claims auditable and reproducible.",
+        "user_problem": "Manual workspace builds and monorepo-level identity make PCR claims ambiguous and hard to audit."
+      },
+      "actors_and_roles": {
+        "primary_user": "Platform engineer",
+        "secondary_user": "Auditor or reviewer",
+        "system_service": "GitHub Actions release workflow"
+      },
+      "business_rules": [
+        {
+          "rule_id": "BR005",
+          "description": "Canonical facts rows must come from tagged enclave release CI, not from manual local builds."
+        },
+        {
+          "rule_id": "BR006",
+          "description": "The measured enclave source is the dedicated enclave repo, not the entire integration monorepo."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "scenario_id": "SC005",
+          "user_story": "As an operator, I want a tagged enclave release to generate canonical artifacts and a facts PR, so that the deployed identity is traceable.",
+          "bdd": {
+            "given": "A release tag is pushed in the canonical enclave repo",
+            "and_preconditions": [
+              "Release CI is configured"
+            ],
+            "when": "The release workflow runs successfully",
+            "then": "The EIF, measurements, provenance manifest, and facts-row update are produced",
+            "and_postconditions": [
+              "A PR can update canonical facts in ztbrowser"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC006",
+          "user_story": "As a reviewer, I want a rebuild-verification path, so that I can compare published measurements against an independent rebuild.",
+          "bdd": {
+            "given": "A published provenance manifest exists",
+            "and_preconditions": [
+              "A rebuild verifier is available"
+            ],
+            "when": "The same repo and ref are rebuilt",
+            "then": "The EIF and measurement outputs can be compared against the published manifest",
+            "and_postconditions": [
+              "Mismatches are visible and auditable"
+            ]
+          }
+        }
+      ],
+      "non_functional_requirements": [
+        {
+          "nfr_id": "NFR005",
+          "type": "auditability",
+          "description": "Canonical provenance must record release tag, commit SHA, PCRs, and artifact hashes."
+        },
+        {
+          "nfr_id": "NFR006",
+          "type": "reproducibility",
+          "description": "Third parties must be able to rerun a documented rebuild-verification process."
+        }
+      ],
+      "test_cases": [
+        {
+          "test_id": "T005",
+          "scenario_id": "SC005",
+          "setup": "Trigger a tagged release in the enclave repo",
+          "action": "Observe CI outputs",
+          "assertion": "Artifacts and facts-row update are generated",
+          "examples": [
+            {
+              "input": {
+                "tag": "v0.1.3"
+              },
+              "expected": {
+                "artifacts": 4
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T006",
+          "scenario_id": "SC006",
+          "setup": "Use provenance.json and the rebuild verifier",
+          "action": "Rebuild the enclave repo at the tagged ref",
+          "assertion": "Comparison result is available",
+          "examples": [
+            {
+              "input": {
+                "expected_match": true
+              },
+              "expected": {
+                "comparison": "pass"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "feature_id": "F004",
+      "general_info": {
+        "name": "Operator deployment workflow",
+        "overview": "Operators can deploy and verify the canonical workload using AWS CLI automation and a TUI."
+      },
+      "goal_and_context": {
+        "business_goal": "Reduce deployment friction and make attested deployment operations observable.",
+        "user_problem": "Manual cloud console deployment is slow, error-prone, and difficult to demonstrate or repeat."
+      },
+      "actors_and_roles": {
+        "primary_user": "Operator or platform engineer",
+        "secondary_user": "Presenter or demo operator",
+        "system_service": "scripts/aws-cli and ztdeploy"
+      },
+      "business_rules": [
+        {
+          "rule_id": "BR007",
+          "description": "A successful verify run must check landing page and attestation endpoint before reporting success."
+        },
+        {
+          "rule_id": "BR008",
+          "description": "Verify runs clean up by default; deploy runs keep the environment live."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "scenario_id": "SC007",
+          "user_story": "As an operator, I want a verify action that deploys, checks the service, and cleans up automatically, so that I can validate the path without leaving infrastructure running.",
+          "bdd": {
+            "given": "The AWS profile and release tag are configured",
+            "and_preconditions": [
+              "Required scripts are present"
+            ],
+            "when": "The operator runs the verify flow",
+            "then": "The workload is deployed, verified, and then stopped or terminated based on cleanup settings",
+            "and_postconditions": [
+              "Stage logs are preserved"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC008",
+          "user_story": "As an operator, I want to inspect and manage running deployments from the TUI, so that live instances remain visible and controllable.",
+          "bdd": {
+            "given": "Managed instances exist in AWS",
+            "and_preconditions": [
+              "The TUI can query AWS"
+            ],
+            "when": "The deployments view is opened",
+            "then": "The UI lists instance IDs, states, instance types, and public IPs and allows stop/terminate actions",
+            "and_postconditions": [
+              "Operators can manage lifecycle without leaving the TUI"
+            ]
+          }
+        }
+      ],
+      "non_functional_requirements": [
+        {
+          "nfr_id": "NFR007",
+          "type": "operability",
+          "description": "Deployment stages must expose live logs and status rather than one opaque command."
+        },
+        {
+          "nfr_id": "NFR008",
+          "type": "cost-control",
+          "description": "Cleanup defaults must avoid leaving infrastructure running unintentionally."
+        }
+      ],
+      "test_cases": [
+        {
+          "test_id": "T007",
+          "scenario_id": "SC007",
+          "setup": "Configure verify action and cleanup mode",
+          "action": "Run staged deploy",
+          "assertion": "Landing page and attestation checks succeed before cleanup",
+          "examples": [
+            {
+              "input": {
+                "action": "verify"
+              },
+              "expected": {
+                "success": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T008",
+          "scenario_id": "SC008",
+          "setup": "Have at least one managed instance present",
+          "action": "Open deployments view",
+          "assertion": "Instance metadata and lifecycle actions are visible",
+          "examples": [
+            {
+              "input": {
+                "instances": 1
+              },
+              "expected": {
+                "listed": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "feature_id": "F005",
+      "general_info": {
+        "name": "Demo and self-signed application path",
+        "overview": "Micrus and the demo service let teams exercise the trust flow with a self-signed root or a Nitro-shaped simulation path."
+      },
+      "goal_and_context": {
+        "business_goal": "Provide a low-friction educational and product-demo path before a canonical enclave rollout is required.",
+        "user_problem": "Teams need a realistic demo path without always performing a full AWS Nitro deployment."
+      },
+      "actors_and_roles": {
+        "primary_user": "Developer or educator",
+        "secondary_user": "Application team exploring trust-gated UX",
+        "system_service": "Micrus or demo service"
+      },
+      "business_rules": [
+        {
+          "rule_id": "BR009",
+          "description": "Self-signed demo paths must be clearly distinguished from canonical AWS Nitro verification."
+        },
+        {
+          "rule_id": "BR010",
+          "description": "Demo trust roots can support learning and product prototyping, but they must not be presented as canonical provenance."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "scenario_id": "SC009",
+          "user_story": "As a demo operator, I want Micrus to verify under a demo trust root, so that I can present an application-facing trust flow locally.",
+          "bdd": {
+            "given": "Micrus is running and the demo root is configured as trusted",
+            "and_preconditions": [
+              "The extension or checker trusts the demo root"
+            ],
+            "when": "The page is validated",
+            "then": "The trust decision succeeds under the demo keychain",
+            "and_postconditions": [
+              "The UI can identify the demo trust root"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC010",
+          "user_story": "As a presenter, I want the canonical AWS path and the self-signed demo path to remain clearly separated, so that the audience understands which guarantees differ.",
+          "bdd": {
+            "given": "Both canonical and demo flows exist in the project",
+            "and_preconditions": [
+              "Documentation and UI expose trust-root context"
+            ],
+            "when": "A demo is presented",
+            "then": "The demo root is shown as noncanonical and the canonical AWS path remains distinct",
+            "and_postconditions": [
+              "No false provenance claim is made"
+            ]
+          }
+        }
+      ],
+      "non_functional_requirements": [
+        {
+          "nfr_id": "NFR009",
+          "type": "clarity",
+          "description": "The UX must distinguish trusted-root context such as AWS root versus demo root."
+        },
+        {
+          "nfr_id": "NFR010",
+          "type": "maintainability",
+          "description": "Demo flows must not require architectural compromises in the canonical release path."
+        }
+      ],
+      "test_cases": [
+        {
+          "test_id": "T009",
+          "scenario_id": "SC009",
+          "setup": "Run Micrus with demo PKI and trust the demo root",
+          "action": "Validate the page",
+          "assertion": "The verifier accepts the demo chain and exposes demo trust-root context",
+          "examples": [
+            {
+              "input": {
+                "trust_root": "demo"
+              },
+              "expected": {
+                "accepted": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T010",
+          "scenario_id": "SC010",
+          "setup": "Open popup for demo flow",
+          "action": "Inspect trust-root label",
+          "assertion": "Popup distinguishes demo keychain from canonical AWS keychain",
+          "examples": [
+            {
+              "input": {
+                "keychain": "demo"
+              },
+              "expected": {
+                "label": "ZTBrowser Demo"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
