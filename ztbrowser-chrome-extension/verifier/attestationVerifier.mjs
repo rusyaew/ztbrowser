@@ -1,26 +1,21 @@
 import { normalizeHex, pemToDer } from './bytes.mjs';
 import { parseCertificate } from './certificates.mjs';
 import { AttestationError } from './errors.mjs';
-import { verifyNitroAttestationDoc } from './attestation.mjs';
 import { ACTIVE_TRUSTED_ROOT_IDS, TRUSTED_ROOT_CERTIFICATES } from '../trustedRoots.mjs';
+import {
+  normalizeEnvelope,
+  PLATFORM_AWS_COCO_SNP,
+  PLATFORM_AWS_NITRO_EIF,
+} from './contracts.mjs';
+import { verifyNitroEnvelope } from './nitroVerifierPlugin.mjs';
+import { verifyCocoEnvelope } from './cocoVerifierPlugin.mjs';
 
 let trustedRootsPromise = null;
 
 export { AttestationError } from './errors.mjs';
 
 export async function verifyAttestationRequest(body) {
-  if (body?.platform !== 'aws_nitro_eif') {
-    return {
-      ok: false,
-      json: {
-        workingEnv: false,
-        codeValidated: false,
-        reason: 'unsupported_platform'
-      }
-    };
-  }
-
-  if (typeof body?.nonce_sent !== 'string' || typeof body?.attestation_doc_b64 !== 'string') {
+  if (typeof body?.nonce_sent !== 'string' || !body?.envelope || typeof body.envelope !== 'object') {
     return {
       ok: false,
       json: {
@@ -32,8 +27,24 @@ export async function verifyAttestationRequest(body) {
   }
 
   try {
+    const envelope = normalizeEnvelope(body.envelope);
     const trustedRoots = await getTrustedRoots();
-    const verified = await verifyNitroAttestationDoc(body.attestation_doc_b64, trustedRoots);
+    let verified;
+    if (envelope.platform === PLATFORM_AWS_NITRO_EIF) {
+      verified = await verifyNitroEnvelope(envelope, trustedRoots);
+    } else if (envelope.platform === PLATFORM_AWS_COCO_SNP) {
+      verified = await verifyCocoEnvelope(envelope);
+    } else {
+      return {
+        ok: false,
+        json: {
+          workingEnv: false,
+          codeValidated: false,
+          reason: 'unsupported_platform'
+        }
+      };
+    }
+
     const nonceSent = normalizeHex(body.nonce_sent.trim());
     const nonceMatches = nonceSent.length > 0 && nonceSent === verified.nonceHex;
 
@@ -44,11 +55,16 @@ export async function verifyAttestationRequest(body) {
         codeValidated: true,
         reason: nonceMatches ? 'ok' : 'nonce_mismatch',
         verified: {
+          service: envelope.service,
+          release_id: envelope.release_id,
+          platform: envelope.platform,
+          identity: verified.identity,
+          workload_pubkey: verified.workloadPubkey ?? envelope.claims.workload_pubkey ?? null,
           nonce_hex: verified.nonceHex,
-          module_id: verified.moduleId,
-          timestamp: verified.timestamp,
-          root_fingerprint256: verified.rootFingerprint256,
-          pcrs: verified.pcrs
+          module_id: verified.moduleId ?? null,
+          timestamp: verified.timestamp ?? null,
+          root_fingerprint256: verified.rootFingerprint256 ?? null,
+          pcrs: verified.pcrs ?? null
         }
       }
     };

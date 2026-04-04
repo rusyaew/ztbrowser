@@ -27,6 +27,10 @@ for asset in ztbrowser-enclave.eif describe-eif.json provenance.json SHA256SUMS;
   curl -fsSL "$BASE_URL/$asset" -o "$OUT_DIR/$asset"
 done
 
+for asset in release-manifest.json coco-runtime-config.json coco-wrapper-server.py; do
+  curl -fsSL "$BASE_URL/$asset" -o "$OUT_DIR/$asset" || true
+done
+
 (
   cd "$OUT_DIR"
   sha256sum -c SHA256SUMS

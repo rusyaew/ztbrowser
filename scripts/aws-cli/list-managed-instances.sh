@@ -11,6 +11,7 @@ aws_cli ec2 describe-instances \
   --query 'Reservations[].Instances[].{
     instance_id: InstanceId,
     instance_type: InstanceType,
+    platform: Tags[?Key==`Platform`].Value | [0],
     state: State.Name,
     public_ip: PublicIpAddress,
     public_dns: PublicDnsName,

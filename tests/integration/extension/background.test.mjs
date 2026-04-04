@@ -136,7 +136,7 @@ describe('background.js', () => {
     await importFreshBackground();
 
     const sendResponse = vi.fn();
-    const payload = { platform: 'aws_nitro_eif', nonce_sent: 'abc', attestation_doc_b64: 'doc' };
+    const payload = { nonce_sent: 'abc', envelope: { version: 'ztinfra-attestation/v1', platform: 'aws_nitro_eif' } };
     const returnValue = registeredListener({ type: 'verify-attestation', payload }, {}, sendResponse);
 
     expect(returnValue).toBe(true);
@@ -164,7 +164,7 @@ describe('background.js', () => {
     const returnValue = registeredListener(
       {
         type: 'verify-attestation',
-        payload: { platform: 'aws_nitro_eif', nonce_sent: 'abc', attestation_doc_b64: 'doc' }
+        payload: { nonce_sent: 'abc', envelope: { version: 'ztinfra-attestation/v1', platform: 'aws_nitro_eif' } }
       },
       {},
       sendResponse

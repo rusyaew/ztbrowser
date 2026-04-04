@@ -66,6 +66,7 @@ export async function runStages(
     cleanupMode: ctx.cleanupMode,
     runAction: ctx.runAction,
     runDir: ctx.runDir,
+    platform: ctx.platform,
   };
 
   const states: StageRuntimeState[] = stages.map((stage) => ({
@@ -158,6 +159,7 @@ export async function runStages(
       await writeMeta({
         success: false,
         finishedAt: new Date().toISOString(),
+        platform: ctx.platform,
         instanceId: ctx.instanceId,
         instanceType: ctx.instanceType,
         host: ctx.host,
@@ -170,6 +172,7 @@ export async function runStages(
   await writeMeta({
     success: true,
     finishedAt: new Date().toISOString(),
+    platform: ctx.platform,
     instanceId: ctx.instanceId,
     instanceType: ctx.instanceType,
     host: ctx.host,

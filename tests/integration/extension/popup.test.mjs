@@ -15,6 +15,7 @@ function renderPopupDom() {
   document.body.innerHTML = `
     <div id="status"></div>
     <div id="reason"></div>
+    <div id="platform"></div>
     <div id="facts"></div>
     <div id="repo"></div>
     <div id="digest"></div>
@@ -50,6 +51,7 @@ describe('popup.js', () => {
         workingEnv: true,
         codeValidated: true,
         reason: 'ok',
+        verifiedPlatform: 'aws_nitro_eif',
         factsMatched: true,
         workload: {
           repo_url: 'https://github.com/example/demo-service',
@@ -73,6 +75,7 @@ describe('popup.js', () => {
     expect(document.getElementById('status')?.textContent).toBe('Status: locked (env=true, code=true)');
     expect(document.getElementById('status')?.className).toBe('row ok');
     expect(document.getElementById('reason')?.textContent).toBe('Reason: ok');
+    expect(document.getElementById('platform')?.textContent).toBe('Platform: aws_nitro_eif');
     expect(document.getElementById('facts')?.textContent).toBe('Facts match: yes');
     expect(document.getElementById('repo')?.textContent).toBe('repo: https://github.com/example/demo-service');
     expect(document.getElementById('digest')?.textContent).toBe('image: sha256:abc123');
@@ -85,6 +88,7 @@ describe('popup.js', () => {
       callback({
         workingEnv: false,
         codeValidated: false,
+        verifiedPlatform: null,
         factsMatched: false
       });
     });
@@ -94,6 +98,7 @@ describe('popup.js', () => {
     expect(document.getElementById('status')?.textContent).toBe('Status: unlocked (env=false, code=false)');
     expect(document.getElementById('status')?.className).toBe('row bad');
     expect(document.getElementById('reason')?.textContent).toBe('Reason: n/a');
+    expect(document.getElementById('platform')?.textContent).toBe('Platform: n/a');
     expect(document.getElementById('facts')?.textContent).toBe('Facts match: no');
     expect(document.getElementById('repo')?.textContent).toBe('');
     expect(document.getElementById('digest')?.textContent).toBe('');
