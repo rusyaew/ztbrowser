@@ -70,13 +70,41 @@ async function fetchAttestation(nonce) {
   return response.json;
 }
 
-async function verifyAttestation(platform, nonceSent, attestationDocB64) {
+function normalizeFetchedEnvelope(attestation) {
+  if (attestation && attestation.version === 'ztinfra-attestation/v1') {
+    return attestation;
+  }
+
+  if (attestation?.platform === 'aws_nitro_eif' && typeof attestation?.evidence?.nitro_attestation_doc_b64 === 'string') {
+    return {
+      version: 'ztinfra-attestation/v1',
+      service: typeof attestation?.workload?.repo_url === 'string' ? attestation.workload.repo_url.split('/').at(-1) : 'unknown-service',
+      release_id: typeof attestation?.workload?.release_tag === 'string' ? attestation.workload.release_tag : 'unknown-release',
+      platform: 'aws_nitro_eif',
+      nonce: typeof attestation.nonce === 'string' ? attestation.nonce : '',
+      claims: {
+        workload_pubkey: null,
+        identity_hint: null
+      },
+      evidence: {
+        type: 'aws_nitro_attestation_doc',
+        payload: {
+          nitro_attestation_doc_b64: attestation.evidence.nitro_attestation_doc_b64
+        }
+      },
+      facts_url: typeof attestation.facts_url === 'string' ? attestation.facts_url : null
+    };
+  }
+
+  return attestation;
+}
+
+async function verifyAttestation(nonceSent, envelope) {
   const response = await sendRuntimeMessage({
     type: 'verify-attestation',
     payload: {
-      platform,
       nonce_sent: nonceSent,
-      attestation_doc_b64: attestationDocB64
+      envelope
     }
   });
 
@@ -91,27 +119,30 @@ async function verifyAttestation(platform, nonceSent, attestationDocB64) {
   return response.json;
 }
 
-async function lookupFactsForPcrs(pcrs) {
+async function lookupFactsForIdentity(identity) {
   for (const base of FACTS_NODE_URLS) {
     try {
-      const response = await extensionFetchJson(`${base}/api/v1/lookup-by-pcr`, {
+      const response = await extensionFetchJson(`${base}/api/v1/lookup-by-realization`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pcrs)
+        body: JSON.stringify({
+          platform: identity.platform,
+          identity: identity.identity
+        })
       });
       if (!response.ok) {
         continue;
       }
       const data = response.json;
       if (data && data.matched && data.workload) {
-        return { matched: true, node: base, workload: data.workload };
+        return { matched: true, node: base, workload: data.workload, release: data.release ?? null, realization: data.realization ?? null };
       }
     } catch {
       // Continue to next trusted node.
     }
   }
 
-  return { matched: false, node: null, workload: null };
+  return { matched: false, node: null, workload: null, release: null, realization: null };
 }
 
 async function validate() {
@@ -127,46 +158,57 @@ async function validate() {
       url: new URL('/.well-known/attestation', window.location.origin).toString(),
       nonceLength: randomNonce.length
     });
-    const attestation = await fetchAttestation(randomNonce);
+    const attestation = normalizeFetchedEnvelope(await fetchAttestation(randomNonce));
     pushDebugStep(debugSteps, 'fetch_attestation_ok', {
       platform: attestation && attestation.platform,
-      hasAttestationDoc: Boolean(attestation?.evidence?.nitro_attestation_doc_b64)
+      version: attestation?.version || null,
+      evidenceType: attestation?.evidence?.type || null
     });
-    const platform = attestation.platform;
-    const attestationDoc = attestation?.evidence?.nitro_attestation_doc_b64;
     const nonceForVerification = randomNonce;
 
-    if (platform !== 'aws_nitro_eif' || typeof attestationDoc !== 'string') {
+    if (
+      attestation?.version !== 'ztinfra-attestation/v1' ||
+      typeof attestation?.platform !== 'string' ||
+      !attestation?.evidence ||
+      typeof attestation.evidence.type !== 'string' ||
+      typeof attestation.evidence.payload !== 'object'
+    ) {
       pushDebugStep(debugSteps, 'fetch_attestation_invalid_payload', {
-        platform,
-        attestationDocType: typeof attestationDoc
+        platform: attestation?.platform ?? null,
+        version: attestation?.version ?? null,
+        evidenceType: attestation?.evidence?.type ?? null
       });
       throw new Error('invalid_attestation_payload');
     }
 
     pushDebugStep(debugSteps, 'verify_start', {
-      platform
+      platform: attestation.platform
     });
-    const verdict = await verifyAttestation(platform, nonceForVerification, attestationDoc);
+    const verdict = await verifyAttestation(nonceForVerification, attestation);
     pushDebugStep(debugSteps, 'verify_ok', {
       workingEnv: Boolean(verdict.workingEnv),
       codeValidated: Boolean(verdict.codeValidated),
       reason: verdict.reason || null
     });
     const pcrs = verdict?.verified?.pcrs || null;
-    let facts = { matched: false, node: null, workload: null };
-    if (pcrs) {
+    const verifiedIdentity = verdict?.verified?.identity || null;
+    const verifiedPlatform = verdict?.verified?.platform || attestation.platform || null;
+    let facts = { matched: false, node: null, workload: null, release: null, realization: null };
+    if (verifiedIdentity && verifiedPlatform) {
       pushDebugStep(debugSteps, 'facts_lookup_start', {
         urls: FACTS_NODE_URLS
       });
-      facts = await lookupFactsForPcrs(pcrs);
+      facts = await lookupFactsForIdentity({
+        platform: verifiedPlatform,
+        identity: verifiedIdentity
+      });
       pushDebugStep(debugSteps, 'facts_lookup_done', {
         matched: facts.matched,
         node: facts.node
       });
     } else {
       pushDebugStep(debugSteps, 'facts_lookup_skipped', {
-        reason: 'missing_verified_pcrs'
+        reason: 'missing_verified_identity'
       });
     }
 
@@ -175,6 +217,10 @@ async function validate() {
       workingEnv: Boolean(verdict.workingEnv),
       codeValidated: Boolean(verdict.codeValidated),
       reason: verdict.reason || null,
+      verifiedPlatform,
+      verifiedIdentity,
+      verifiedReleaseId: verdict?.verified?.release_id || null,
+      verifiedService: verdict?.verified?.service || null,
       verifiedPcrs: pcrs,
       factsMatched: facts.matched,
       factsNode: facts.node,
@@ -184,9 +230,9 @@ async function validate() {
     console.log('[ZTBrowser] validation_success', {
       workingEnv: Boolean(verdict.workingEnv),
       codeValidated: Boolean(verdict.codeValidated),
-      factsMatched: facts.matched,
-      workload: facts.workload
-    });
+        factsMatched: facts.matched,
+        workload: facts.workload
+      });
     updateIcon(locked);
   } catch (error) {
     pushDebugStep(debugSteps, 'validate_error', {
@@ -197,6 +243,10 @@ async function validate() {
       workingEnv: false,
       codeValidated: false,
       reason: error instanceof Error ? error.message : 'validation_failed',
+      verifiedPlatform: null,
+      verifiedIdentity: null,
+      verifiedReleaseId: null,
+      verifiedService: null,
       verifiedPcrs: null,
       factsMatched: false,
       factsNode: null,

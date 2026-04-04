@@ -10,9 +10,18 @@ set -euo pipefail
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_PROFILE="${AWS_PROFILE:-ztbrowser}"
 AWS_BIN="${AWS_BIN:-aws}"
-INSTANCE_NAME="${INSTANCE_NAME:-ztbrowser-nitro-parent}"
-LAUNCH_TEMPLATE_NAME="${LAUNCH_TEMPLATE_NAME:-ztbrowser-nitro-parent}"
-SECURITY_GROUP_NAME="${SECURITY_GROUP_NAME:-ztbrowser-nitro-parent-sg}"
+PLATFORM="${PLATFORM:-aws_nitro_eif}"
+
+default_instance_name() {
+  case "$PLATFORM" in
+    aws_coco_snp) printf 'ztbrowser-coco-parent\n' ;;
+    *) printf 'ztbrowser-nitro-parent\n' ;;
+  esac
+}
+
+INSTANCE_NAME="${INSTANCE_NAME:-$(default_instance_name)}"
+LAUNCH_TEMPLATE_NAME="${LAUNCH_TEMPLATE_NAME:-$INSTANCE_NAME}"
+SECURITY_GROUP_NAME="${SECURITY_GROUP_NAME:-$INSTANCE_NAME-sg}"
 KEY_NAME="${KEY_NAME:-ztbrowser-nitro-key}"
 LOCAL_KEY_PATH="${LOCAL_KEY_PATH:-/home/gleb/ztbrowser-nitro-key.pem}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-m5.xlarge}"
@@ -25,6 +34,7 @@ ENCLAVE_RELEASE_TAG="${ENCLAVE_RELEASE_TAG:-}"
 SSH_USER="${SSH_USER:-ec2-user}"
 MANAGED_TAG_KEY="ManagedBy"
 MANAGED_TAG_VALUE="ztbrowser-aws-cli"
+PLATFORM_TAG_KEY="Platform"
 
 log() {
   printf '[aws-cli] %s\n' "$*" >&2
@@ -101,12 +111,13 @@ ensure_security_group() {
     log "creating security group $SECURITY_GROUP_NAME in VPC $vpc_id"
     sg_id="$(aws_cli ec2 create-security-group \
       --group-name "$SECURITY_GROUP_NAME" \
-      --description 'ZTBrowser Nitro parent instance security group' \
+      --description "ZTBrowser managed $PLATFORM security group" \
       --vpc-id "$vpc_id" \
       --query 'GroupId' \
       --output text)"
     aws_cli ec2 create-tags --resources "$sg_id" --tags \
       Key=Name,Value="$SECURITY_GROUP_NAME" \
+      Key="$PLATFORM_TAG_KEY",Value="$PLATFORM" \
       Key="$MANAGED_TAG_KEY",Value="$MANAGED_TAG_VALUE" >/dev/null
   fi
 
@@ -175,6 +186,7 @@ ensure_launch_template() {
       "ResourceType": "instance",
       "Tags": [
         {"Key": "Name", "Value": "$INSTANCE_NAME"},
+        {"Key": "$PLATFORM_TAG_KEY", "Value": "$PLATFORM"},
         {"Key": "$MANAGED_TAG_KEY", "Value": "$MANAGED_TAG_VALUE"}
       ]
     },
@@ -182,6 +194,7 @@ ensure_launch_template() {
       "ResourceType": "volume",
       "Tags": [
         {"Key": "Name", "Value": "$INSTANCE_NAME-root"},
+        {"Key": "$PLATFORM_TAG_KEY", "Value": "$PLATFORM"},
         {"Key": "$MANAGED_TAG_KEY", "Value": "$MANAGED_TAG_VALUE"}
       ]
     }
@@ -222,6 +235,7 @@ find_managed_instance_lines() {
   aws_cli ec2 describe-instances \
     --filters \
       Name=tag:Name,Values="$INSTANCE_NAME" \
+      Name=tag:$PLATFORM_TAG_KEY,Values="$PLATFORM" \
       Name=tag:$MANAGED_TAG_KEY,Values="$MANAGED_TAG_VALUE" \
       Name=instance-state-name,Values=pending,running,stopping,stopped \
     --query 'Reservations[].Instances[].[InstanceId,State.Name,PublicIpAddress,PublicDnsName]' \
@@ -250,7 +264,7 @@ ensure_instance_running() {
     ((${#candidates[@]} > 0)) || die "no instance type candidates configured"
 
     for candidate in "${candidates[@]}"; do
-      log "launching new managed Nitro parent instance with instance type $candidate"
+      log "launching new managed $PLATFORM instance with instance type $candidate"
       set +e
       run_output="$(aws_cli ec2 run-instances \
         --launch-template LaunchTemplateName="$LAUNCH_TEMPLATE_NAME",Version='$Default' \
@@ -270,7 +284,7 @@ ensure_instance_running() {
 
       if grep -q 'InsufficientInstanceCapacity' <<<"$run_output"; then
         capacity_failures+=("$candidate")
-        log "capacity unavailable for $candidate, trying the next Nitro-compatible fallback"
+        log "capacity unavailable for $candidate, trying the next platform-compatible fallback"
         continue
       fi
 
@@ -328,6 +342,7 @@ emit_instance_json() {
   "instance_id": "$instance_id",
   "instance_name": "$INSTANCE_NAME",
   "instance_type": "$instance_type",
+  "platform": "$PLATFORM",
   "public_ip": "$public_ip",
   "public_dns": "$public_dns",
   "key_name": "$KEY_NAME",

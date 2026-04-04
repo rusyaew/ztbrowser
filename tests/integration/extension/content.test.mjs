@@ -51,6 +51,26 @@ function buildDemoAttestationDoc(nonceHex) {
   return cbor.encodeCanonical([protectedHeader, new Map(), payload, signature]).toString('base64');
 }
 
+function buildNitroEnvelope(attestationDoc, nonceHex) {
+  return {
+    version: 'ztinfra-attestation/v1',
+    service: 'ztinfra-enclaveproducedhtml',
+    release_id: 'v0.1.3',
+    platform: 'aws_nitro_eif',
+    nonce: nonceHex,
+    claims: {
+      workload_pubkey: null,
+      identity_hint: null
+    },
+    evidence: {
+      type: 'aws_nitro_attestation_doc',
+      payload: {
+        nitro_attestation_doc_b64: attestationDoc
+      }
+    }
+  };
+}
+
 async function importFreshModule(relativePath) {
   const absolutePath = path.resolve(process.cwd(), relativePath);
   const fileUrl = pathToFileURL(absolutePath);
@@ -113,10 +133,7 @@ describe('content.js', () => {
           result: {
             ok: true,
             status: 200,
-            json: {
-              platform: 'aws_nitro_eif',
-              evidence: { nitro_attestation_doc_b64: attestationDoc }
-            }
+            json: buildNitroEnvelope(attestationDoc, nonceHex)
           }
         });
         return;
@@ -127,7 +144,7 @@ describe('content.js', () => {
         return;
       }
 
-      if (message?.type === 'fetch_json' && message.url.includes('/api/v1/lookup-by-pcr')) {
+      if (message?.type === 'fetch_json' && message.url.includes('/api/v1/lookup-by-realization')) {
         callback({
           ok: true,
           result: {
@@ -135,6 +152,13 @@ describe('content.js', () => {
             status: 200,
             json: {
               matched: true,
+              release: {
+                service: 'ztinfra-enclaveproducedhtml',
+                release_id: 'v0.1.3'
+              },
+              realization: {
+                platform: 'aws_nitro_eif'
+              },
               workload: {
                 repo_url: 'https://github.com/example/demo-service',
                 oci_image_digest: 'sha256:abc123'
@@ -161,6 +185,18 @@ describe('content.js', () => {
         workingEnv: true,
         codeValidated: true,
         reason: 'ok',
+        verifiedPlatform: 'aws_nitro_eif',
+        verifiedReleaseId: 'v0.1.3',
+        verifiedService: 'ztinfra-enclaveproducedhtml',
+        verifiedIdentity: {
+          type: 'eif_pcr_set',
+          value: {
+            pcr0: '11'.repeat(48),
+            pcr1: '22'.repeat(48),
+            pcr2: '33'.repeat(48),
+            pcr8: '44'.repeat(48)
+          }
+        },
         factsMatched: true,
         factsNode: 'https://facts-db.onrender.com',
         workload: {
@@ -194,10 +230,7 @@ describe('content.js', () => {
           result: {
             ok: true,
             status: 200,
-            json: {
-              platform: 'aws_nitro_eif',
-              evidence: { nitro_attestation_doc_b64: attestationDoc }
-            }
+            json: buildNitroEnvelope(attestationDoc, nonceHex)
           }
         });
         return;
@@ -208,7 +241,7 @@ describe('content.js', () => {
         return;
       }
 
-      if (message?.type === 'fetch_json' && message.url.includes('/api/v1/lookup-by-pcr')) {
+      if (message?.type === 'fetch_json' && message.url.includes('/api/v1/lookup-by-realization')) {
         callback({
           ok: false,
           error: 'facts_unavailable'
@@ -249,7 +282,12 @@ describe('content.js', () => {
             ok: true,
             status: 200,
             json: {
+              version: 'ztinfra-attestation/v1',
+              service: 'ztinfra-enclaveproducedhtml',
+              release_id: 'v0.1.3',
               platform: 'aws_nitro_eif',
+              nonce: '00',
+              claims: {},
               evidence: {}
             }
           }
@@ -292,10 +330,7 @@ describe('content.js', () => {
           result: {
             ok: true,
             status: 200,
-            json: {
-              platform: 'aws_nitro_eif',
-              evidence: { nitro_attestation_doc_b64: 'unused' }
-            }
+            json: buildNitroEnvelope('unused', Buffer.from(nonceBytes).toString('hex'))
           }
         });
         return;
@@ -333,7 +368,7 @@ describe('content.js', () => {
         factsNode: null,
         workload: null,
         debugSteps: expect.arrayContaining([
-          expect.objectContaining({ step: 'facts_lookup_skipped', reason: 'missing_verified_pcrs' })
+          expect.objectContaining({ step: 'facts_lookup_skipped', reason: 'missing_verified_identity' })
         ])
       })
     );

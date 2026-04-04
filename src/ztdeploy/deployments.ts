@@ -42,6 +42,7 @@ export async function listManagedInstances(repoRoot: string, awsProfile: string)
   const parsed = JSON.parse(raw) as Array<{
     instance_id?: string;
     instance_type?: string;
+    platform?: string;
     state?: string;
     public_ip?: string;
     public_dns?: string;
@@ -51,6 +52,7 @@ export async function listManagedInstances(repoRoot: string, awsProfile: string)
     .map((entry) => ({
       instanceId: entry.instance_id ?? '',
       instanceType: entry.instance_type ?? 'unknown',
+      platform: entry.platform ?? 'aws_nitro_eif',
       state: entry.state ?? 'unknown',
       publicIp: entry.public_ip ?? '-',
       publicDns: entry.public_dns ?? '-',
