@@ -10,6 +10,7 @@ aws_cli ec2 describe-instances \
     Name=instance-state-name,Values=pending,running,stopping,stopped \
   --query 'Reservations[].Instances[].{
     instance_id: InstanceId,
+    instance_type: InstanceType,
     state: State.Name,
     public_ip: PublicIpAddress,
     public_dns: PublicDnsName,

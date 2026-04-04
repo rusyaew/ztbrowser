@@ -11,7 +11,7 @@ import {fetchGithubReleaseTags} from './github.js';
 import {ensureDir, stateRootPath} from './paths.js';
 import {readAwsProfiles} from './profiles.js';
 import {runStages} from './runner.js';
-import type {CleanupMode, GithubReleaseInfo, ManagedInstanceRecord, RepoDefinition, RunAction, RunSettings, StageRuntimeState} from './types.js';
+import type {CleanupMode, GithubReleaseInfo, ManagedInstanceRecord, RepoDefinition, RunAction, RunMeta, RunSettings, StageRuntimeState} from './types.js';
 
 interface AppProps {
   repoRoot: string;
@@ -135,6 +135,7 @@ export function App({repoRoot, repos: initialRepos, defaults}: AppProps): React.
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [stageStates, setStageStates] = useState<StageRuntimeState[]>([]);
+  const [runMeta, setRunMeta] = useState<Partial<RunMeta>>({});
   const [deployments, setDeployments] = useState<ManagedInstanceRecord[]>([]);
   const [focusPane, setFocusPane] = useState<FocusPane>('repos');
   const [repoScroll, setRepoScroll] = useState(0);
@@ -224,6 +225,12 @@ export function App({repoRoot, repos: initialRepos, defaults}: AppProps): React.
 
   const displayStages = stageStates.length > 0 ? stageStates : previewStages;
   const completedCount = displayStages.filter((stage) => ['succeeded', 'failed', 'skipped'].includes(stage.status)).length;
+  const stageSummary = truncateText(
+    `${isRunning ? 'Run active' : 'Awaiting confirmation'} · tags ${loadingTags ? 'syncing' : releaseTags.length > 0 ? releaseTags.length : 'manual'}${
+      runMeta.instanceType ? ` · type ${runMeta.instanceType}` : ''
+    }${runMeta.host ? ` · host ${runMeta.host}` : ''}`,
+    centerWidth - 4,
+  );
   const visibleRepos = repos.slice(repoScroll, repoScroll + repoListHeight);
   const visibleStages = displayStages.slice(stageScroll, stageScroll + visibleStageCount);
   const maxStageScroll = Math.max(displayStages.length - visibleStageCount, 0);
@@ -319,6 +326,7 @@ export function App({repoRoot, repos: initialRepos, defaults}: AppProps): React.
     );
     setStageScroll(0);
     setLogScroll(0);
+    setRunMeta({});
     setIsRunning(true);
     setMessage(`Deploying ${selectedRepo.name} via ${selectedMethod.label}. Logs will be written to ${runDir}.`);
     setModal({type: 'none'});
@@ -328,12 +336,14 @@ export function App({repoRoot, repos: initialRepos, defaults}: AppProps): React.
       onLogLine: (line) => {
         setLogs((current) => [...current.slice(-799), line]);
       },
+      onMetaPatch: setRunMeta,
     });
 
     setIsRunning(false);
     if (result.success) {
       const finalHost = result.meta.host ? `host ${result.meta.host}` : 'no host recorded';
-      setMessage(`Run succeeded. action=${actionLabel(settings.runAction)} ${finalHost}. cleanup=${cleanupLabel(settings.cleanupMode)}. logs: ${result.meta.runDir}`);
+      const finalType = result.meta.instanceType ? `type ${result.meta.instanceType}` : 'type unknown';
+      setMessage(`Run succeeded. action=${actionLabel(settings.runAction)} ${finalHost} ${finalType}. cleanup=${cleanupLabel(settings.cleanupMode)}. logs: ${result.meta.runDir}`);
     } else {
       setMessage(`Deployment failed. Inspect the console pane and run log at ${result.meta.runDir}.`);
       setModal({type: 'error', message: result.error?.message ?? 'unknown_error'});
@@ -743,7 +753,7 @@ export function App({repoRoot, repos: initialRepos, defaults}: AppProps): React.
           <Text color={focusPane === 'stages' ? 'cyan' : 'magenta'}>Stages</Text>
           <Box marginTop={1} flexDirection="column">
             <Text color="white">{progressBar(completedCount, Math.max(displayStages.length, 1))} {completedCount}/{Math.max(displayStages.length, 1)}</Text>
-            <Text color="gray">{isRunning ? 'Run active' : 'Awaiting confirmation'} · tags {loadingTags ? 'syncing' : releaseTags.length > 0 ? releaseTags.length : 'manual'}</Text>
+            <Text color="gray">{stageSummary}</Text>
           </Box>
           <Box marginTop={1} flexDirection="column">
             {visibleStages.map((stage) => (
@@ -872,7 +882,7 @@ export function App({repoRoot, repos: initialRepos, defaults}: AppProps): React.
               <Box key={deployment.instanceId} flexDirection="column">
                 <Text color={index === modal.index ? 'cyan' : 'white'}>
                   {index === modal.index ? '› ' : '  '}
-                  {truncateText(`${deployment.instanceId}  ${deployment.state}  ${deployment.publicIp}`, modalWidth - 6)}
+                  {truncateText(`${deployment.instanceId}  ${deployment.instanceType}  ${deployment.state}  ${deployment.publicIp}`, modalWidth - 6)}
                 </Text>
                 <Text color="gray">{truncateText(`${deployment.publicDns}  ${deployment.launchTime}`, modalWidth - 6)}</Text>
               </Box>

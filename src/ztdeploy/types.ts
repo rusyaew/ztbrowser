@@ -66,6 +66,7 @@ export interface RuntimeContext extends RunSettings {
   proxyPort: number;
   sshUser: string;
   instanceId?: string;
+  instanceType?: string;
   host?: string;
   publicDns?: string;
   launchTemplateId?: string;
@@ -123,6 +124,7 @@ export interface RunMeta {
   runDir: string;
   success?: boolean;
   instanceId?: string;
+  instanceType?: string;
   host?: string;
 }
 
@@ -133,6 +135,7 @@ export interface GithubReleaseInfo {
 
 export interface ManagedInstanceRecord {
   instanceId: string;
+  instanceType: string;
   state: string;
   publicIp: string;
   publicDns: string;

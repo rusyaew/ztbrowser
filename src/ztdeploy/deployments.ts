@@ -41,6 +41,7 @@ export async function listManagedInstances(repoRoot: string, awsProfile: string)
   const raw = await runJsonScript(repoRoot, 'list-managed-instances.sh', awsProfile);
   const parsed = JSON.parse(raw) as Array<{
     instance_id?: string;
+    instance_type?: string;
     state?: string;
     public_ip?: string;
     public_dns?: string;
@@ -49,6 +50,7 @@ export async function listManagedInstances(repoRoot: string, awsProfile: string)
   return parsed
     .map((entry) => ({
       instanceId: entry.instance_id ?? '',
+      instanceType: entry.instance_type ?? 'unknown',
       state: entry.state ?? 'unknown',
       publicIp: entry.public_ip ?? '-',
       publicDns: entry.public_dns ?? '-',
