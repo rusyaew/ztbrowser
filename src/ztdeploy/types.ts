@@ -58,6 +58,10 @@ export interface RuntimeContext extends RunSettings {
   repoRoot: string;
   selectedRepo: RepoDefinition;
   selectedMethod: MethodDefinition;
+  platform: string;
+  instanceName: string;
+  launchTemplateName: string;
+  securityGroupName: string;
   stateRoot: string;
   runDir: string;
   awsRegion: string;
@@ -66,6 +70,7 @@ export interface RuntimeContext extends RunSettings {
   proxyPort: number;
   sshUser: string;
   instanceId?: string;
+  instanceType?: string;
   host?: string;
   publicDns?: string;
   launchTemplateId?: string;
@@ -121,8 +126,10 @@ export interface RunMeta {
   cleanupMode: CleanupMode;
   runAction?: RunAction;
   runDir: string;
+  platform?: string;
   success?: boolean;
   instanceId?: string;
+  instanceType?: string;
   host?: string;
 }
 
@@ -133,6 +140,8 @@ export interface GithubReleaseInfo {
 
 export interface ManagedInstanceRecord {
   instanceId: string;
+  instanceType: string;
+  platform: string;
   state: string;
   publicIp: string;
   publicDns: string;

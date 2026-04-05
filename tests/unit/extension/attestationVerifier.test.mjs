@@ -17,12 +17,31 @@ function tamperBase64(base64Value) {
   return bytes.toString('base64');
 }
 
+function buildNitroEnvelope(attestationDocB64, nonce = validNonce) {
+  return {
+    version: 'ztinfra-attestation/v1',
+    service: 'ztinfra-enclaveproducedhtml',
+    release_id: 'v0.1.3',
+    platform: 'aws_nitro_eif',
+    nonce,
+    claims: {
+      workload_pubkey: null,
+      identity_hint: null
+    },
+    evidence: {
+      type: 'aws_nitro_attestation_doc',
+      payload: {
+        nitro_attestation_doc_b64: attestationDocB64
+      }
+    }
+  };
+}
+
 describe('verifyAttestationRequest', () => {
   it('accepts a valid AWS Nitro attestation document', async () => {
     const result = await verifyAttestationRequest({
-      platform: 'aws_nitro_eif',
       nonce_sent: validNonce.toUpperCase(),
-      attestation_doc_b64: validAttestationDoc
+      envelope: buildNitroEnvelope(validAttestationDoc)
     });
 
     expect(result).toEqual({
@@ -32,6 +51,19 @@ describe('verifyAttestationRequest', () => {
         codeValidated: true,
         reason: 'ok',
         verified: {
+          service: 'ztinfra-enclaveproducedhtml',
+          release_id: 'v0.1.3',
+          platform: 'aws_nitro_eif',
+          identity: {
+            type: 'eif_pcr_set',
+            value: {
+              pcr0: '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+              pcr1: '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+              pcr2: '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+              pcr8: '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+            }
+          },
+          workload_pubkey: null,
           nonce_hex: validNonce,
           module_id: 'i-0918f6c55e3b61d89-enc018aa8b8e2285d13',
           timestamp: expect.any(Number),
@@ -49,9 +81,8 @@ describe('verifyAttestationRequest', () => {
 
   it('keeps cryptographic validation true when the nonce mismatches', async () => {
     const result = await verifyAttestationRequest({
-      platform: 'aws_nitro_eif',
       nonce_sent: 'deadbeef',
-      attestation_doc_b64: validAttestationDoc
+      envelope: buildNitroEnvelope(validAttestationDoc)
     });
 
     expect(result.ok).toBe(true);
@@ -62,9 +93,11 @@ describe('verifyAttestationRequest', () => {
 
   it('rejects unsupported platforms before attempting verification', async () => {
     const result = await verifyAttestationRequest({
-      platform: 'not_nitro',
       nonce_sent: validNonce,
-      attestation_doc_b64: validAttestationDoc
+      envelope: {
+        ...buildNitroEnvelope(validAttestationDoc),
+        platform: 'not_nitro'
+      }
     });
 
     expect(result).toEqual({
@@ -79,25 +112,26 @@ describe('verifyAttestationRequest', () => {
 
   it('rejects missing payload fields', async () => {
     const result = await verifyAttestationRequest({
-      platform: 'aws_nitro_eif',
-      nonce_sent: validNonce
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      json: {
-        workingEnv: false,
-        codeValidated: false,
-        reason: 'invalid_payload'
+      nonce_sent: validNonce,
+      envelope: {
+        ...buildNitroEnvelope(validAttestationDoc),
+        evidence: {
+          type: 'aws_nitro_attestation_doc',
+          payload: {}
+        }
       }
     });
+
+    expect(result.ok).toBe(false);
+    expect(result.json.workingEnv).toBe(false);
+    expect(result.json.codeValidated).toBe(false);
+    expect(result.json.reason).toBe('invalid_payload');
   });
 
   it('returns invalid_signature for a tampered attestation document', async () => {
     const result = await verifyAttestationRequest({
-      platform: 'aws_nitro_eif',
       nonce_sent: validNonce,
-      attestation_doc_b64: tamperBase64(validAttestationDoc)
+      envelope: buildNitroEnvelope(tamperBase64(validAttestationDoc))
     });
 
     expect(result.ok).toBe(false);
@@ -107,5 +141,84 @@ describe('verifyAttestationRequest', () => {
     expect(result.json.details).toEqual({
       message: 'COSE signature validation failed'
     });
+  });
+
+  it('accepts workload-specific CoCo evidence and normalizes image_digest + initdata_hash', async () => {
+    const initdataHash = 'ab'.repeat(32);
+    const result = await verifyAttestationRequest({
+      nonce_sent: validNonce,
+      envelope: {
+        version: 'ztinfra-attestation/v1',
+        service: 'ztinfra-enclaveproducedhtml',
+        release_id: 'v0.1.3',
+        platform: 'aws_coco_snp',
+        nonce: validNonce,
+        claims: {
+          workload_pubkey: null,
+          identity_hint: `coco_image_initdata:sha256:${'12'.repeat(32)}:${initdataHash}`
+        },
+        evidence: {
+          type: 'coco_trustee_evidence',
+          payload: {
+            runtime_data: validNonce,
+            init_data_hash: initdataHash
+          }
+        }
+      }
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      json: {
+        workingEnv: true,
+        codeValidated: true,
+        reason: 'ok',
+        verified: {
+          service: 'ztinfra-enclaveproducedhtml',
+          release_id: 'v0.1.3',
+          platform: 'aws_coco_snp',
+          identity: {
+            type: 'coco_image_initdata',
+            value: {
+              image_digest: `sha256:${'12'.repeat(32)}`,
+              initdata_hash: initdataHash
+            }
+          },
+          workload_pubkey: null,
+          nonce_hex: validNonce,
+          module_id: null,
+          timestamp: null,
+          root_fingerprint256: null,
+          pcrs: null
+        }
+      }
+    });
+  });
+
+  it('rejects CoCo evidence without workload differentiation', async () => {
+    const result = await verifyAttestationRequest({
+      nonce_sent: validNonce,
+      envelope: {
+        version: 'ztinfra-attestation/v1',
+        service: 'ztinfra-enclaveproducedhtml',
+        release_id: 'v0.1.3',
+        platform: 'aws_coco_snp',
+        nonce: validNonce,
+        claims: {
+          workload_pubkey: null,
+          identity_hint: null
+        },
+        evidence: {
+          type: 'coco_trustee_evidence',
+          payload: {
+            runtime_data: validNonce,
+            init_data_hash: 'ab'.repeat(32)
+          }
+        }
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.json.reason).toBe('unsupported_coco_evidence');
   });
 });

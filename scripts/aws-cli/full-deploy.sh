@@ -8,7 +8,7 @@ usage() {
   cat <<USAGE
 Usage: $0 --release-tag <tag> [--extra-ssh-cidr <cidr>] [--pause]
 
-Provision or reuse the managed Nitro parent instance, deploy a canonical enclave release,
+Provision or reuse the managed platform instance, deploy a canonical enclave release,
 verify the public HTTP surface, then clean up the compute resource.
 
 Cleanup policy:
@@ -86,9 +86,15 @@ trap cleanup EXIT
 "$ROOT_DIR/scripts/aws-cli/deploy-release.sh" --host "$host" --release-tag "$release_tag" --remote-ref "$remote_ref"
 
 curl -fsS "http://$host:$PROXY_PORT/" >/dev/null
-curl -fsS -X POST "http://$host:$PROXY_PORT/.well-known/attestation" \
-  -H 'Content-Type: application/json' \
-  -d '{"NONCE":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"}' | grep -q 'nitro_attestation_doc_b64'
+if [[ "$PLATFORM" == "aws_coco_snp" ]]; then
+  curl -fsS -X POST "http://$host:$PROXY_PORT/.well-known/attestation" \
+    -H 'Content-Type: application/json' \
+    -d '{"NONCE":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"}' | grep -q 'coco_trustee_evidence'
+else
+  curl -fsS -X POST "http://$host:$PROXY_PORT/.well-known/attestation" \
+    -H 'Content-Type: application/json' \
+    -d '{"NONCE":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"}' | grep -q 'nitro_attestation_doc_b64'
+fi
 
-log "verified release $release_tag on $host"
+log "verified release $release_tag on $host for platform $PLATFORM"
 log "cleanup mode: $cleanup_mode"

@@ -9,7 +9,7 @@ function shortHex(value) {
 }
 
 chrome.storage.local.get(
-  ['workingEnv', 'codeValidated', 'reason', 'factsMatched', 'workload', 'verifiedPcrs', 'debugSteps'],
+  ['workingEnv', 'codeValidated', 'reason', 'verifiedPlatform', 'factsMatched', 'workload', 'verifiedPcrs', 'debugSteps'],
   (data) => {
     const workingEnv = Boolean(data.workingEnv);
     const codeValidated = Boolean(data.codeValidated);
@@ -17,6 +17,7 @@ chrome.storage.local.get(
 
     const statusEl = document.getElementById('status');
     const reasonEl = document.getElementById('reason');
+    const platformEl = document.getElementById('platform');
     const factsEl = document.getElementById('facts');
     const repoEl = document.getElementById('repo');
     const digestEl = document.getElementById('digest');
@@ -30,6 +31,10 @@ chrome.storage.local.get(
 
     if (reasonEl) {
       reasonEl.textContent = `Reason: ${data.reason || 'n/a'}`;
+    }
+
+    if (platformEl) {
+      platformEl.textContent = `Platform: ${data.verifiedPlatform || 'n/a'}`;
     }
 
     if (factsEl) {

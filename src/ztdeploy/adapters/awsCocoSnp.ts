@@ -1,17 +1,14 @@
 import path from 'node:path';
-import type {CommandSpec, RuntimeContext, StageDefinition} from '../types.js';
+import type {RuntimeContext, StageDefinition} from '../types.js';
 import {bashSpec, createAwsRuntimeContext, localScript, render, runtimeHost, sshSpec} from './awsShared.js';
 
-export function createAwsCanonicalContext(
-  base: Omit<
-    RuntimeContext,
-    'platform' | 'instanceName' | 'launchTemplateName' | 'securityGroupName' | 'awsRegion' | 'localKeyPath' | 'hostRepoDir' | 'proxyPort' | 'sshUser'
-  >,
+export function createAwsCocoSnpContext(
+  base: Omit<RuntimeContext, 'platform' | 'instanceName' | 'launchTemplateName' | 'securityGroupName' | 'awsRegion' | 'localKeyPath' | 'hostRepoDir' | 'proxyPort' | 'sshUser'>,
 ): RuntimeContext {
-  return createAwsRuntimeContext(base, 'aws_nitro_eif');
+  return createAwsRuntimeContext(base, 'aws_coco_snp');
 }
 
-export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] {
+export function buildAwsCocoSnpStages(ctx: RuntimeContext): StageDefinition[] {
   const remoteParentDir = path.posix.dirname(ctx.hostRepoDir);
   const extraArgs = ctx.extraSshCidrs.flatMap((cidr) => ['--extra-ssh-cidr', cidr]);
 
@@ -39,7 +36,7 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
     {
       id: 'ensure-security-group',
       title: 'Ensure Security Group',
-      description: 'Create or reuse the dedicated security group and keep the public proxy port exposed.',
+      description: 'Create or reuse the dedicated security group and keep the public wrapper port exposed.',
       preview: (runtime) => [render(localScript(runtime, 'ensure-security-group.sh'))],
       run: async (runtime, api) => {
         const result = await api.runCommand('ensure-security-group', localScript(runtime, 'ensure-security-group.sh'));
@@ -59,7 +56,7 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
     {
       id: 'ensure-launch-template',
       title: 'Ensure Launch Template',
-      description: 'Create or update the Nitro-enabled launch template used for managed instances.',
+      description: 'Create or update the EC2 launch template used for managed CoCo wrapper instances.',
       preview: (runtime) => [render(localScript(runtime, 'ensure-launch-template.sh'))],
       run: async (runtime, api) => {
         const result = await api.runCommand('ensure-launch-template', localScript(runtime, 'ensure-launch-template.sh'));
@@ -70,7 +67,7 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
     {
       id: 'ensure-instance',
       title: 'Ensure Instance',
-      description: 'Start a managed parent instance or launch a new one from the launch template.',
+      description: 'Start a managed instance or launch a new one from the platform-specific launch template.',
       preview: (runtime) => [render(localScript(runtime, 'ensure-instance.sh'))],
       run: async (runtime, api) => {
         const result = await api.runCommand('ensure-instance', localScript(runtime, 'ensure-instance.sh'));
@@ -80,6 +77,7 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
           public_ip: string;
           public_dns: string;
           local_key_path?: string;
+          platform?: string;
         };
         runtime.instanceId = info.instance_id;
         runtime.instanceType = info.instance_type ?? runtime.instanceType;
@@ -88,18 +86,24 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
         if (info.local_key_path) {
           runtime.localKeyPath = info.local_key_path;
         }
-        await api.writeMeta({instanceId: runtime.instanceId, instanceType: runtime.instanceType, host: runtime.host, publicDns: runtime.publicDns});
+        await api.writeMeta({
+          instanceId: runtime.instanceId,
+          instanceType: runtime.instanceType,
+          host: runtime.host,
+          publicDns: runtime.publicDns,
+          platform: info.platform ?? runtime.platform,
+        });
       },
     },
     {
       id: 'bootstrap-host',
       title: 'Bootstrap Host Packages',
-      description: 'Install Nitro CLI, Docker, tmux, Rust, and supporting packages on the EC2 parent instance.',
+      description: 'Install git, tmux, curl, and Python on the EC2 host so the CoCo wrapper can run.',
       preview: (runtime) => [
         render(
           sshSpec(
             runtime,
-            'if ! command -v git >/dev/null 2>&1 || ! command -v nitro-cli >/dev/null 2>&1 || ! command -v docker >/dev/null 2>&1 || ! command -v tmux >/dev/null 2>&1; then sudo dnf install aws-nitro-enclaves-cli aws-nitro-enclaves-cli-devel docker git tmux rust cargo -y && sudo usermod -aG ne ec2-user && sudo usermod -aG docker ec2-user && sudo systemctl enable --now docker; fi',
+            'if ! command -v git >/dev/null 2>&1 || ! command -v tmux >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then sudo dnf install git tmux python3 curl -y; fi',
           ),
         ),
       ],
@@ -108,7 +112,7 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
           'bootstrap-host',
           sshSpec(
             runtime,
-            'if ! command -v git >/dev/null 2>&1 || ! command -v nitro-cli >/dev/null 2>&1 || ! command -v docker >/dev/null 2>&1 || ! command -v tmux >/dev/null 2>&1; then sudo dnf install aws-nitro-enclaves-cli aws-nitro-enclaves-cli-devel docker git tmux rust cargo -y && sudo usermod -aG ne ec2-user && sudo usermod -aG docker ec2-user && sudo systemctl enable --now docker; fi',
+            'if ! command -v git >/dev/null 2>&1 || ! command -v tmux >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then sudo dnf install git tmux python3 curl -y; fi',
           ),
         );
       },
@@ -141,31 +145,9 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
       },
     },
     {
-      id: 'configure-allocator',
-      title: 'Configure Allocator',
-      description: 'Reserve CPU and memory for enclaves and start the Nitro allocator service.',
-      preview: (runtime) => [
-        render(
-          sshSpec(
-            runtime,
-            "sudo tee /etc/nitro_enclaves/allocator.yaml >/dev/null <<'YAML'\n---\nmemory_mib: 2048\ncpu_count: 2\nYAML\nsudo systemctl enable --now nitro-enclaves-allocator.service",
-          ),
-        ),
-      ],
-      run: async (runtime, api) => {
-        await api.runCommand(
-          'configure-allocator',
-          sshSpec(
-            runtime,
-            "sudo tee /etc/nitro_enclaves/allocator.yaml >/dev/null <<'YAML'\n---\nmemory_mib: 2048\ncpu_count: 2\nYAML\nsudo systemctl enable --now nitro-enclaves-allocator.service",
-          ),
-        );
-      },
-    },
-    {
       id: 'fetch-release',
-      title: 'Fetch Enclave Release',
-      description: 'Download the canonical EIF, measurements, and provenance manifest for the selected tag.',
+      title: 'Fetch Release Assets',
+      description: 'Download the canonical release manifest, CoCo wrapper, and runtime config for the selected tag.',
       preview: (runtime) => [render(sshSpec(runtime, `cd '${runtime.hostRepoDir}' && ./scripts/fetch-enclave-release.sh '${runtime.releaseTag}'`))],
       run: async (runtime, api) => {
         await api.runCommand('fetch-release', sshSpec(runtime, `cd '${runtime.hostRepoDir}' && ./scripts/fetch-enclave-release.sh '${runtime.releaseTag}'`));
@@ -174,49 +156,31 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
     {
       id: 'stop-previous-runtime',
       title: 'Stop Previous Runtime',
-      description: 'Terminate any old enclaves and stop the previous parent proxy session before redeploying.',
-      preview: (runtime) => [render(sshSpec(runtime, 'nitro-cli terminate-enclave --all >/dev/null 2>&1 || true; tmux kill-session -t ztbrowser-proxy >/dev/null 2>&1 || true'))],
+      description: 'Stop the previous CoCo wrapper tmux session before redeploying.',
+      preview: (runtime) => [render(sshSpec(runtime, 'tmux kill-session -t ztbrowser-coco-wrapper >/dev/null 2>&1 || true'))],
       run: async (runtime, api) => {
-        await api.runCommand(
-          'stop-previous-runtime',
-          sshSpec(runtime, 'nitro-cli terminate-enclave --all >/dev/null 2>&1 || true; tmux kill-session -t ztbrowser-proxy >/dev/null 2>&1 || true'),
-        );
+        await api.runCommand('stop-previous-runtime', sshSpec(runtime, 'tmux kill-session -t ztbrowser-coco-wrapper >/dev/null 2>&1 || true'));
       },
     },
     {
-      id: 'run-enclave',
-      title: 'Run Enclave',
-      description: 'Launch the fetched EIF inside Nitro Enclaves on the EC2 parent instance.',
-      preview: (runtime) => [render(sshSpec(runtime, `cd '${runtime.hostRepoDir}' && ./scripts/aws-run-enclave.sh`))],
-      run: async (runtime, api) => {
-        await api.runCommand('run-enclave', sshSpec(runtime, `cd '${runtime.hostRepoDir}' && ./scripts/aws-run-enclave.sh`));
-      },
-    },
-    {
-      id: 'start-parent-proxy',
-      title: 'Start Parent Proxy',
-      description: 'Run the parent HTTP proxy in tmux with provenance and measurements wired in.',
+      id: 'start-coco-wrapper',
+      title: 'Start CoCo Wrapper',
+      description: 'Run the fetched CoCo wrapper in tmux. This requires a host-local AA endpoint to satisfy attestation verification.',
       preview: (runtime) => [
         render(
-          sshSpec(
-            runtime,
-            `cd '${runtime.hostRepoDir}' && tmux new-session -d -s ztbrowser-proxy 'PROVENANCE_PATH=${runtime.hostRepoDir}/aws-deploy/build/provenance.json MEASUREMENTS_PATH=${runtime.hostRepoDir}/aws-deploy/build/describe-eif.json ./scripts/aws-run-parent-proxy.sh >> ~/ztbrowser-proxy.log 2>&1'`,
-          ),
+          sshSpec(runtime, `cd '${runtime.hostRepoDir}' && tmux new-session -d -s ztbrowser-coco-wrapper './scripts/aws-run-coco-wrapper.sh >> ~/ztbrowser-coco-wrapper.log 2>&1'`),
         ),
       ],
       run: async (runtime, api) => {
         await api.runCommand(
-          'start-parent-proxy',
-          sshSpec(
-            runtime,
-            `cd '${runtime.hostRepoDir}' && tmux new-session -d -s ztbrowser-proxy 'PROVENANCE_PATH=${runtime.hostRepoDir}/aws-deploy/build/provenance.json MEASUREMENTS_PATH=${runtime.hostRepoDir}/aws-deploy/build/describe-eif.json ./scripts/aws-run-parent-proxy.sh >> ~/ztbrowser-proxy.log 2>&1'`,
-          ),
+          'start-coco-wrapper',
+          sshSpec(runtime, `cd '${runtime.hostRepoDir}' && tmux new-session -d -s ztbrowser-coco-wrapper './scripts/aws-run-coco-wrapper.sh >> ~/ztbrowser-coco-wrapper.log 2>&1'`),
         );
       },
     },
     {
-      id: 'wait-proxy',
-      title: 'Wait For Proxy Ready',
+      id: 'wait-wrapper',
+      title: 'Wait For Wrapper Ready',
       description: 'Poll the deployed HTTP surface until the public landing page responds.',
       preview: (runtime) => [
         render(
@@ -230,9 +194,9 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
       ],
       run: async (runtime, api) => {
         await api.runCommand(
-          'wait-proxy',
+          'wait-wrapper',
           bashSpec(
-            `for attempt in $(seq 1 60); do if curl -fsS http://${runtime.host}:${runtime.proxyPort}/ >/dev/null 2>&1; then echo ready; exit 0; fi; sleep 2; done; echo proxy_not_ready; exit 1`,
+            `for attempt in $(seq 1 60); do if curl -fsS http://${runtime.host}:${runtime.proxyPort}/ >/dev/null 2>&1; then echo ready; exit 0; fi; sleep 2; done; echo wrapper_not_ready; exit 1`,
             runtime.repoRoot,
             process.env,
             `curl readiness loop for http://${runtime.host}:${runtime.proxyPort}/`,
@@ -243,7 +207,7 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
     {
       id: 'verify-landing',
       title: 'Verify Landing Page',
-      description: 'Confirm the public landing page is reachable after the proxy starts.',
+      description: 'Confirm the public landing page is reachable after the wrapper starts.',
       preview: (runtime) => [render(bashSpec(`curl -fsS http://${runtimeHost(runtime)}:${runtime.proxyPort}/`, runtime.repoRoot, process.env))],
       run: async (runtime, api) => {
         await api.runCommand('verify-landing', bashSpec(`curl -fsS http://${runtime.host}:${runtime.proxyPort}/`, runtime.repoRoot, process.env));
@@ -252,11 +216,11 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
     {
       id: 'verify-attestation',
       title: 'Verify Attestation Endpoint',
-      description: 'Call the attestation endpoint and ensure a Nitro attestation document is present.',
+      description: 'Call the attestation endpoint and require a CoCo common envelope. This fails honestly until the host exposes a working AA endpoint.',
       preview: (runtime) => [
         render(
           bashSpec(
-            `curl -fsS -X POST http://${runtimeHost(runtime)}:${runtime.proxyPort}/.well-known/attestation -H 'Content-Type: application/json' -d '{"NONCE":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"}' | grep -q nitro_attestation_doc_b64`,
+            `curl -fsS -X POST http://${runtimeHost(runtime)}:${runtime.proxyPort}/.well-known/attestation -H 'Content-Type: application/json' -d '{"NONCE":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"}' | grep -q 'coco_trustee_evidence'`,
             runtime.repoRoot,
             process.env,
           ),
@@ -266,7 +230,7 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
         await api.runCommand(
           'verify-attestation',
           bashSpec(
-            `curl -fsS -X POST http://${runtime.host}:${runtime.proxyPort}/.well-known/attestation -H 'Content-Type: application/json' -d '{"NONCE":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"}' | grep -q nitro_attestation_doc_b64`,
+            `curl -fsS -X POST http://${runtime.host}:${runtime.proxyPort}/.well-known/attestation -H 'Content-Type: application/json' -d '{"NONCE":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"}' | grep -q 'coco_trustee_evidence'`,
             runtime.repoRoot,
             process.env,
           ),
@@ -278,7 +242,7 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
       title: ctx.runAction === 'deploy' ? 'Keep Deployment Running' : 'Cleanup',
       description:
         ctx.runAction === 'deploy'
-          ? 'Keep the managed EC2 instance running so the deployment stays live.'
+          ? 'Keep the managed EC2 instance running so the experimental CoCo wrapper stays live.'
           : ctx.cleanupMode === 'pause'
             ? 'Stop the managed EC2 instance for later reuse.'
             : 'Terminate the managed EC2 instance after verification.',
@@ -294,7 +258,7 @@ export function buildAwsCanonicalStages(ctx: RuntimeContext): StageDefinition[] 
       },
       run: async (runtime, api) => {
         if (runtime.runAction === 'deploy') {
-          api.log('cleanup', `Keeping deployment live on ${runtime.host ?? 'the managed instance'}`);
+          api.log('cleanup', `Keeping experimental CoCo deployment live on ${runtime.host ?? 'the managed instance'}`);
           return;
         }
         if (!runtime.instanceId) {

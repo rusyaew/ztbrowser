@@ -136,7 +136,18 @@ describe('background.js', () => {
     await importFreshBackground();
 
     const sendResponse = vi.fn();
-    const payload = { platform: 'aws_nitro_eif', nonce_sent: 'abc', attestation_doc_b64: 'doc' };
+    const payload = {
+      nonce_sent: 'abc',
+      envelope: {
+        version: 'ztinfra-attestation/v1',
+        service: 'ztinfra-enclaveproducedhtml',
+        release_id: 'v0.2.0',
+        platform: 'aws_nitro_eif',
+        nonce: 'abc',
+        claims: {},
+        evidence: { type: 'aws_nitro_attestation_doc', payload: { nitro_attestation_doc_b64: 'AQ==' } }
+      }
+    };
     const returnValue = registeredListener({ type: 'verify-attestation', payload }, {}, sendResponse);
 
     expect(returnValue).toBe(true);
@@ -164,7 +175,18 @@ describe('background.js', () => {
     const returnValue = registeredListener(
       {
         type: 'verify-attestation',
-        payload: { platform: 'aws_nitro_eif', nonce_sent: 'abc', attestation_doc_b64: 'doc' }
+        payload: {
+          nonce_sent: 'abc',
+          envelope: {
+            version: 'ztinfra-attestation/v1',
+            service: 'ztinfra-enclaveproducedhtml',
+            release_id: 'v0.2.0',
+            platform: 'aws_nitro_eif',
+            nonce: 'abc',
+            claims: {},
+            evidence: { type: 'aws_nitro_attestation_doc', payload: { nitro_attestation_doc_b64: 'AQ==' } }
+          }
+        }
       },
       {},
       sendResponse

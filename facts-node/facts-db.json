@@ -1,37 +1,146 @@
-[
-  {
-    "workload_id": "demo-workload-fixture",
-    "repo_url": "https://github.com/example/demo-service-repo",
-    "project_repo_url": "https://github.com/rusyaew/ztbrowser",
-    "oci_image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-    "pcr0": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-    "pcr1": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-    "pcr2": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-    "pcr8": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-    "nitro_cli_version": "fixture",
-    "build_timestamp": "2026-03-08T00:00:00Z",
-    "last_updated": "2026-03-08T00:00:00Z",
-    "canonical": false,
-    "notes": "Fixture mapping for local signature-validation demo"
-  },
-  {
-    "workload_id": "ztbrowser-aws-nitro",
-    "repo_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
-    "project_repo_url": "https://github.com/rusyaew/ztbrowser",
-    "oci_image_digest": "sha256:a4f60a1fbb55e42a5e05a48defb98925d6c958704cb152e09e91fcfa2b34d45f",
-    "pcr0": "64dc4b5d65cd2cd033ef9374f3dd2d23d5dc27e880b1b526c416ed7403ef64a4a6c7c6a94c920aa7c1d0a50e9d793467",
-    "pcr1": "0343b056cd8485ca7890ddd833476d78460aed2aa161548e4e26bedf321726696257d623e8805f3f605946b3d8b0c6aa",
-    "pcr2": "2dfa410afb14fd5a43c2d1daf9791cebcf7fc6dee10b92315901e609661b24d8b5e332f37c86cf6fa41b8073e34df90d",
-    "pcr8": null,
-    "nitro_cli_version": "1.4.4",
-    "build_timestamp": "2026-03-23T17:03:04Z",
-    "last_updated": "2026-03-23T17:03:04Z",
-    "release_tag": "v0.1.3",
-    "commit_sha": "88ddacaf5d618851a3c1e6e973c1c44fc4fe2d8a",
-    "eif_sha256": "5824c6a75d43d47a161c5dc0056349c65c2ce5e2d6a0fb3a825f6325a5a3233f",
-    "describe_eif_sha256": "eb883df1261693e694b6acfa9276f494ed388b54b445cc6f2ed50f4733d551cf",
-    "release_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml/releases/tag/v0.1.3",
-    "canonical": true,
-    "notes": "Canonical facts row for v0.1.3 from https://github.com/rusyaew/ztinfra-enclaveproducedhtml"
-  }
-]
+{
+  "schema_version": 2,
+  "releases": [
+    {
+      "service": "demo-service-repo",
+      "release_id": "demo-workload-fixture",
+      "repo_url": "https://github.com/example/demo-service-repo",
+      "project_repo_url": "https://github.com/rusyaew/ztbrowser",
+      "source_image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "legacy_workload_id": "demo-workload-fixture",
+      "canonical": false,
+      "notes": "Fixture mapping for local signature-validation demo",
+      "accepted_realizations": [
+        {
+          "platform": "aws_nitro_eif",
+          "identity": {
+            "type": "eif_pcr_set",
+            "value": {
+              "pcr0": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+              "pcr1": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+              "pcr2": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+              "pcr8": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            }
+          }
+        }
+      ],
+      "legacy_projection": {
+        "workload_id": "demo-workload-fixture",
+        "repo_url": "https://github.com/example/demo-service-repo",
+        "project_repo_url": "https://github.com/rusyaew/ztbrowser",
+        "oci_image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "pcr0": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "pcr1": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "pcr2": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "pcr8": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "nitro_cli_version": "fixture",
+        "build_timestamp": "2026-03-08T00:00:00Z",
+        "last_updated": "2026-03-08T00:00:00Z",
+        "canonical": false,
+        "notes": "Fixture mapping for local signature-validation demo"
+      }
+    },
+    {
+      "service": "ztinfra-enclaveproducedhtml",
+      "release_id": "v0.1.3",
+      "repo_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
+      "project_repo_url": "https://github.com/rusyaew/ztbrowser",
+      "release_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml/releases/tag/v0.1.3",
+      "source_image_digest": "sha256:a4f60a1fbb55e42a5e05a48defb98925d6c958704cb152e09e91fcfa2b34d45f",
+      "legacy_workload_id": "ztbrowser-aws-nitro",
+      "canonical": true,
+      "notes": "Canonical facts row for v0.1.3 from https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
+      "accepted_realizations": [
+        {
+          "platform": "aws_nitro_eif",
+          "identity": {
+            "type": "eif_pcr_set",
+            "value": {
+              "pcr0": "64dc4b5d65cd2cd033ef9374f3dd2d23d5dc27e880b1b526c416ed7403ef64a4a6c7c6a94c920aa7c1d0a50e9d793467",
+              "pcr1": "0343b056cd8485ca7890ddd833476d78460aed2aa161548e4e26bedf321726696257d623e8805f3f605946b3d8b0c6aa",
+              "pcr2": "2dfa410afb14fd5a43c2d1daf9791cebcf7fc6dee10b92315901e609661b24d8b5e332f37c86cf6fa41b8073e34df90d",
+              "pcr8": null
+            }
+          }
+        }
+      ],
+      "legacy_projection": {
+        "workload_id": "ztbrowser-aws-nitro",
+        "repo_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
+        "project_repo_url": "https://github.com/rusyaew/ztbrowser",
+        "oci_image_digest": "sha256:a4f60a1fbb55e42a5e05a48defb98925d6c958704cb152e09e91fcfa2b34d45f",
+        "pcr0": "64dc4b5d65cd2cd033ef9374f3dd2d23d5dc27e880b1b526c416ed7403ef64a4a6c7c6a94c920aa7c1d0a50e9d793467",
+        "pcr1": "0343b056cd8485ca7890ddd833476d78460aed2aa161548e4e26bedf321726696257d623e8805f3f605946b3d8b0c6aa",
+        "pcr2": "2dfa410afb14fd5a43c2d1daf9791cebcf7fc6dee10b92315901e609661b24d8b5e332f37c86cf6fa41b8073e34df90d",
+        "pcr8": null,
+        "nitro_cli_version": "1.4.4",
+        "build_timestamp": "2026-03-23T17:03:04Z",
+        "last_updated": "2026-03-23T17:03:04Z",
+        "release_tag": "v0.1.3",
+        "commit_sha": "88ddacaf5d618851a3c1e6e973c1c44fc4fe2d8a",
+        "eif_sha256": "5824c6a75d43d47a161c5dc0056349c65c2ce5e2d6a0fb3a825f6325a5a3233f",
+        "describe_eif_sha256": "eb883df1261693e694b6acfa9276f494ed388b54b445cc6f2ed50f4733d551cf",
+        "release_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml/releases/tag/v0.1.3",
+        "canonical": true,
+        "notes": "Canonical facts row for v0.1.3 from https://github.com/rusyaew/ztinfra-enclaveproducedhtml"
+      }
+    },
+    {
+      "service": "ztinfra-enclaveproducedhtml",
+      "release_id": "v0.2.0",
+      "repo_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
+      "project_repo_url": "https://github.com/rusyaew/ztbrowser",
+      "release_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml/releases/tag/v0.2.0",
+      "source_image_digest": "sha256:ae466b3cdad0d618dfc09d424fe4c1282e6695f8edb4f10f3257b5fe01188c82",
+      "legacy_workload_id": "ztbrowser-aws-nitro",
+      "canonical": true,
+      "notes": "Canonical release manifest for v0.2.0 from https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
+      "accepted_realizations": [
+        {
+          "platform": "aws_nitro_eif",
+          "identity": {
+            "type": "eif_pcr_set",
+            "value": {
+              "pcr0": "992d77ac39d39fe86be2dbbb9cad3a029346a37bbb0b7b401d7443c4f6e01a9fb4415104e108a8dbbaee59b187bf4021",
+              "pcr1": "0343b056cd8485ca7890ddd833476d78460aed2aa161548e4e26bedf321726696257d623e8805f3f605946b3d8b0c6aa",
+              "pcr2": "0bb01175e45086d0280ce7405e92cdf56acf5d32144ca9fc6fbb2d755f716979178fb476463ad462898ae1f29cbdb2dc",
+              "pcr8": null
+            }
+          },
+          "assets": {
+            "eif": "ztbrowser-enclave.eif",
+            "describe_eif": "describe-eif.json",
+            "provenance": "provenance.json"
+          }
+        },
+        {
+          "platform": "aws_coco_snp",
+          "identity": {
+            "type": "coco_image_initdata",
+            "value": {
+              "image_digest": "sha256:ae466b3cdad0d618dfc09d424fe4c1282e6695f8edb4f10f3257b5fe01188c82",
+              "initdata_hash": "f5ad07eccd2664eb1ea6ddc74b17022de954c20ea6a4530c6a5a1c2e697d9b89"
+            }
+          },
+          "assets": {
+            "runtime_config": "coco-runtime-config.json"
+          }
+        }
+      ],
+      "legacy_projection": {
+        "workload_id": "ztbrowser-aws-nitro",
+        "repo_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml",
+        "project_repo_url": "https://github.com/rusyaew/ztbrowser",
+        "oci_image_digest": "sha256:ae466b3cdad0d618dfc09d424fe4c1282e6695f8edb4f10f3257b5fe01188c82",
+        "pcr0": "992d77ac39d39fe86be2dbbb9cad3a029346a37bbb0b7b401d7443c4f6e01a9fb4415104e108a8dbbaee59b187bf4021",
+        "pcr1": "0343b056cd8485ca7890ddd833476d78460aed2aa161548e4e26bedf321726696257d623e8805f3f605946b3d8b0c6aa",
+        "pcr2": "0bb01175e45086d0280ce7405e92cdf56acf5d32144ca9fc6fbb2d755f716979178fb476463ad462898ae1f29cbdb2dc",
+        "pcr8": null,
+        "release_tag": "v0.2.0",
+        "release_url": "https://github.com/rusyaew/ztinfra-enclaveproducedhtml/releases/tag/v0.2.0",
+        "canonical": true,
+        "notes": "Canonical release manifest for v0.2.0 from https://github.com/rusyaew/ztinfra-enclaveproducedhtml"
+      }
+    }
+  ]
+}

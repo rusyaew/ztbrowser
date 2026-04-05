@@ -10,12 +10,22 @@ set -euo pipefail
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_PROFILE="${AWS_PROFILE:-ztbrowser}"
 AWS_BIN="${AWS_BIN:-aws}"
-INSTANCE_NAME="${INSTANCE_NAME:-ztbrowser-nitro-parent}"
-LAUNCH_TEMPLATE_NAME="${LAUNCH_TEMPLATE_NAME:-ztbrowser-nitro-parent}"
-SECURITY_GROUP_NAME="${SECURITY_GROUP_NAME:-ztbrowser-nitro-parent-sg}"
+PLATFORM="${PLATFORM:-aws_nitro_eif}"
+
+default_instance_name() {
+  case "$PLATFORM" in
+    aws_coco_snp) printf 'ztbrowser-coco-parent\n' ;;
+    *) printf 'ztbrowser-nitro-parent\n' ;;
+  esac
+}
+
+INSTANCE_NAME="${INSTANCE_NAME:-$(default_instance_name)}"
+LAUNCH_TEMPLATE_NAME="${LAUNCH_TEMPLATE_NAME:-$INSTANCE_NAME}"
+SECURITY_GROUP_NAME="${SECURITY_GROUP_NAME:-$INSTANCE_NAME-sg}"
 KEY_NAME="${KEY_NAME:-ztbrowser-nitro-key}"
 LOCAL_KEY_PATH="${LOCAL_KEY_PATH:-/home/gleb/ztbrowser-nitro-key.pem}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-m5.xlarge}"
+INSTANCE_TYPE_CANDIDATES="${INSTANCE_TYPE_CANDIDATES:-$INSTANCE_TYPE,m6i.xlarge,m6a.xlarge,m5a.xlarge,m5d.xlarge,m5n.xlarge}"
 PROXY_PORT="${PROXY_PORT:-9999}"
 AMI_SSM_PARAMETER="${AMI_SSM_PARAMETER:-/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}"
 HOST_REPO_DIR="${HOST_REPO_DIR:-/home/ec2-user/ztbrowser}"
@@ -24,6 +34,7 @@ ENCLAVE_RELEASE_TAG="${ENCLAVE_RELEASE_TAG:-}"
 SSH_USER="${SSH_USER:-ec2-user}"
 MANAGED_TAG_KEY="ManagedBy"
 MANAGED_TAG_VALUE="ztbrowser-aws-cli"
+PLATFORM_TAG_KEY="Platform"
 
 log() {
   printf '[aws-cli] %s\n' "$*" >&2
@@ -100,12 +111,13 @@ ensure_security_group() {
     log "creating security group $SECURITY_GROUP_NAME in VPC $vpc_id"
     sg_id="$(aws_cli ec2 create-security-group \
       --group-name "$SECURITY_GROUP_NAME" \
-      --description 'ZTBrowser Nitro parent instance security group' \
+      --description "ZTBrowser managed $PLATFORM security group" \
       --vpc-id "$vpc_id" \
       --query 'GroupId' \
       --output text)"
     aws_cli ec2 create-tags --resources "$sg_id" --tags \
       Key=Name,Value="$SECURITY_GROUP_NAME" \
+      Key="$PLATFORM_TAG_KEY",Value="$PLATFORM" \
       Key="$MANAGED_TAG_KEY",Value="$MANAGED_TAG_VALUE" >/dev/null
   fi
 
@@ -174,6 +186,7 @@ ensure_launch_template() {
       "ResourceType": "instance",
       "Tags": [
         {"Key": "Name", "Value": "$INSTANCE_NAME"},
+        {"Key": "$PLATFORM_TAG_KEY", "Value": "$PLATFORM"},
         {"Key": "$MANAGED_TAG_KEY", "Value": "$MANAGED_TAG_VALUE"}
       ]
     },
@@ -181,6 +194,7 @@ ensure_launch_template() {
       "ResourceType": "volume",
       "Tags": [
         {"Key": "Name", "Value": "$INSTANCE_NAME-root"},
+        {"Key": "$PLATFORM_TAG_KEY", "Value": "$PLATFORM"},
         {"Key": "$MANAGED_TAG_KEY", "Value": "$MANAGED_TAG_VALUE"}
       ]
     }
@@ -221,14 +235,22 @@ find_managed_instance_lines() {
   aws_cli ec2 describe-instances \
     --filters \
       Name=tag:Name,Values="$INSTANCE_NAME" \
+      Name=tag:$PLATFORM_TAG_KEY,Values="$PLATFORM" \
       Name=tag:$MANAGED_TAG_KEY,Values="$MANAGED_TAG_VALUE" \
       Name=instance-state-name,Values=pending,running,stopping,stopped \
     --query 'Reservations[].Instances[].[InstanceId,State.Name,PublicIpAddress,PublicDnsName]' \
     --output text
 }
 
+instance_type_candidates() {
+  printf '%s\n' "$INSTANCE_TYPE_CANDIDATES" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed '/^$/d'
+}
+
 ensure_instance_running() {
-  local line_count instance_line instance_id state
+  local line_count instance_line instance_id state candidate
+  local run_output rc
+  local -a candidates=()
+  local -a capacity_failures=()
   mapfile -t lines < <(find_managed_instance_lines | sed '/^$/d')
   line_count="${#lines[@]}"
 
@@ -238,12 +260,39 @@ ensure_instance_running() {
   fi
 
   if (( line_count == 0 )); then
-    log "launching new managed Nitro parent instance"
-    instance_id="$(aws_cli ec2 run-instances \
-      --launch-template LaunchTemplateName="$LAUNCH_TEMPLATE_NAME",Version='$Default' \
-      --count 1 \
-      --query 'Instances[0].InstanceId' \
-      --output text)"
+    mapfile -t candidates < <(instance_type_candidates)
+    ((${#candidates[@]} > 0)) || die "no instance type candidates configured"
+
+    for candidate in "${candidates[@]}"; do
+      log "launching new managed $PLATFORM instance with instance type $candidate"
+      set +e
+      run_output="$(aws_cli ec2 run-instances \
+        --launch-template LaunchTemplateName="$LAUNCH_TEMPLATE_NAME",Version='$Default' \
+        --instance-type "$candidate" \
+        --count 1 \
+        --query 'Instances[0].InstanceId' \
+        --output text 2>&1)"
+      rc=$?
+      set -e
+
+      if (( rc == 0 )); then
+        instance_id="$run_output"
+        [[ -n "$instance_id" && "$instance_id" != "None" ]] || die "run-instances returned success without an instance id for type $candidate"
+        log "launched instance $instance_id with instance type $candidate"
+        break
+      fi
+
+      if grep -q 'InsufficientInstanceCapacity' <<<"$run_output"; then
+        capacity_failures+=("$candidate")
+        log "capacity unavailable for $candidate, trying the next platform-compatible fallback"
+        continue
+      fi
+
+      printf '%s\n' "$run_output" >&2
+      die "run-instances failed for instance type $candidate"
+    done
+
+    [[ -n "${instance_id:-}" ]] || die "could not launch a parent instance due to insufficient capacity across candidate types: ${capacity_failures[*]}"
   else
     read -r instance_id state _ <<<"${lines[0]}"
     case "$state" in
@@ -268,6 +317,7 @@ ensure_instance_running() {
   # Waiting for "running" is sufficient here because the next phase performs a real SSH bootstrap
   # and then verifies the live HTTP surface. EC2 status checks can lag behind actual SSH readiness
   # by several minutes, which makes the automation look stuck even though deployment can proceed.
+  [[ -n "$instance_id" && "$instance_id" != "None" ]] || die "instance id is empty before waiting for running state"
   aws_cli ec2 wait instance-running --instance-ids "$instance_id"
   printf '%s\n' "$instance_id"
 }
@@ -283,13 +333,16 @@ instance_field() {
 
 emit_instance_json() {
   local instance_id="$1"
-  local public_ip public_dns
+  local public_ip public_dns instance_type
   public_ip="$(instance_field "$instance_id" 'Reservations[0].Instances[0].PublicIpAddress')"
   public_dns="$(instance_field "$instance_id" 'Reservations[0].Instances[0].PublicDnsName')"
+  instance_type="$(instance_field "$instance_id" 'Reservations[0].Instances[0].InstanceType')"
   cat <<JSON
 {
   "instance_id": "$instance_id",
   "instance_name": "$INSTANCE_NAME",
+  "instance_type": "$instance_type",
+  "platform": "$PLATFORM",
   "public_ip": "$public_ip",
   "public_dns": "$public_dns",
   "key_name": "$KEY_NAME",

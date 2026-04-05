@@ -35,6 +35,8 @@ struct Config {
 
 #[derive(Clone, Serialize)]
 struct WorkloadMetadata {
+    service: String,
+    release_id: String,
     workload_id: String,
     repo_url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,6 +56,8 @@ struct PcrSet {
 
 #[derive(Debug, Deserialize)]
 struct ProvenanceManifest {
+    service: Option<String>,
+    release_id: Option<String>,
     workload_id: String,
     repo_url: String,
     #[serde(default)]
@@ -74,14 +78,34 @@ struct AttestationRequest {
 
 #[derive(Serialize)]
 struct AttestationResponse {
+    version: &'static str,
+    service: String,
+    release_id: String,
     platform: &'static str,
     nonce: String,
-    workload: WorkloadMetadata,
+    claims: Claims,
     evidence: Evidence,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    facts_url: Option<String>,
+}
+
+#[derive(Serialize)]
+struct Claims {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    workload_pubkey: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    identity_hint: Option<String>,
 }
 
 #[derive(Serialize)]
 struct Evidence {
+    #[serde(rename = "type")]
+    evidence_type: &'static str,
+    payload: EvidencePayload,
+}
+
+#[derive(Serialize)]
+struct EvidencePayload {
     nitro_attestation_doc_b64: String,
 }
 
@@ -212,12 +236,22 @@ async fn attestation(
             .context("Could not fetch attestation document from enclave")?;
 
     Ok(Json(AttestationResponse {
+        version: "ztinfra-attestation/v1",
+        service: state.config.workload.service.clone(),
+        release_id: state.config.workload.release_id.clone(),
         platform: "aws_nitro_eif",
         nonce,
-        workload: state.config.workload.clone(),
-        evidence: Evidence {
-            nitro_attestation_doc_b64: attestation_doc_b64,
+        claims: Claims {
+            workload_pubkey: None,
+            identity_hint: None,
         },
+        evidence: Evidence {
+            evidence_type: "aws_nitro_attestation_doc",
+            payload: EvidencePayload {
+                nitro_attestation_doc_b64: attestation_doc_b64,
+            },
+        },
+        facts_url: env::var("FACTS_URL").ok(),
     }))
 }
 
@@ -335,6 +369,10 @@ fn load_workload_metadata(provenance_path: &str, measurements_path: Option<&str>
     }
 
     Ok(WorkloadMetadata {
+        service: provenance
+            .service
+            .unwrap_or_else(|| provenance.repo_url.rsplit('/').next().unwrap_or("unknown-service").to_string()),
+        release_id: provenance.release_id.unwrap_or_else(|| provenance.workload_id.clone()),
         workload_id: provenance.workload_id,
         repo_url: provenance.repo_url,
         project_repo_url: provenance.project_repo_url,
