@@ -10,6 +10,7 @@
 - `src/ztdeploy/`
 - `tests/unit/extension/attestationVerifier.test.mjs`
 - `tests/integration/extension/*.test.mjs`
+- `tests/integration/facts-node/*.test.mjs`
 - `scripts/smoke-api.ts`
 - `micrus/README.md`
 - `ztinfra-enclaveproducedhtml` release and rebuild workflows
@@ -30,7 +31,7 @@
 
 ## Remaining implementation gaps, not missing documents
 
-- stronger automated tests for `ztdeploy` and facts-node edge cases
+- stronger automated tests for `ztdeploy` and AWS CoCo operator paths
 - stronger automated validation linking canonical release fields to facts rows
 - actual monitoring instrumentation and dashboard implementation if desired later
 - broader AWS/CD automation if the project decides to move beyond operator-driven deploys

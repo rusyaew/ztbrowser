@@ -1,6 +1,6 @@
 {
   "product_name": "ZTBrowser",
-  "product_overview": "ZTBrowser is a developer trust platform that lets a browser verify an enclave-backed execution claim, enrich that claim with public provenance metadata, and support repeatable deployment of attested services.",
+  "product_overview": "ZTBrowser is a developer trust platform that lets a browser verify an enclave-backed execution claim, enrich that claim with public provenance metadata, and support repeatable deployment of attested services on AWS Nitro and AWS CoCo.",
   "features": [
     {
       "feature_id": "F001",
@@ -32,7 +32,7 @@
           "scenario_id": "SC001",
           "user_story": "As a user, I want the extension to show a lock only when the attestation is valid, so that I do not trust unverifiable services.",
           "bdd": {
-            "given": "A page origin exposes a valid Nitro attestation endpoint",
+            "given": "A page origin exposes a valid attestation endpoint",
             "and_preconditions": [
               "The extension can fetch the endpoint",
               "The trusted root set contains the required root certificate"
@@ -40,7 +40,7 @@
             "when": "The extension validates the returned attestation document for the generated nonce",
             "then": "The extension stores workingEnv=true and codeValidated=true and shows a locked state",
             "and_postconditions": [
-              "Verified PCRs are available for optional facts lookup"
+              "Verified realizations are available for optional facts lookup"
             ]
           }
         },
@@ -114,7 +114,7 @@
       "feature_id": "F002",
       "general_info": {
         "name": "Facts and provenance lookup",
-        "overview": "The extension maps checker-verified PCR tuples to public workload and release metadata."
+        "overview": "The extension maps verified realizations to public workload and release metadata."
       },
       "goal_and_context": {
         "business_goal": "Explain what measured workload identity the browser has verified.",
@@ -128,7 +128,7 @@
       "business_rules": [
         {
           "rule_id": "BR003",
-          "description": "Facts lookup is keyed by verified PCR tuple, not by repo name or user input."
+          "description": "Facts lookup is keyed by verified realization identity, not by repo name or user input."
         },
         {
           "rule_id": "BR004",
@@ -138,13 +138,13 @@
       "acceptance_criteria": [
         {
           "scenario_id": "SC003",
-          "user_story": "As a reviewer, I want a verified PCR tuple to resolve to workload metadata when available, so that I can understand what was measured.",
+          "user_story": "As a reviewer, I want a verified realization to resolve to workload metadata when available, so that I can understand what was measured.",
           "bdd": {
-            "given": "The verifier has already produced PCR values",
+            "given": "The verifier has already produced realization values",
             "and_preconditions": [
               "The facts node contains a matching row"
             ],
-            "when": "The extension queries lookup-by-pcr",
+            "when": "The extension queries lookup-by-realization",
             "then": "The extension stores factsMatched=true and workload metadata",
             "and_postconditions": [
               "The popup can show repo URL and image digest"
@@ -176,14 +176,14 @@
         {
           "nfr_id": "NFR004",
           "type": "interoperability",
-          "description": "Facts schema must support canonical release provenance fields without breaking lookup-by-pcr."
+          "description": "Facts schema must support canonical release provenance fields without breaking lookup compatibility."
         }
       ],
       "test_cases": [
         {
           "test_id": "T003",
           "scenario_id": "SC003",
-          "setup": "Provide verified PCRs and a matching facts row",
+          "setup": "Provide verified realization data and a matching facts row",
           "action": "Run content-script facts lookup",
           "assertion": "factsMatched=true and workload metadata stored",
           "examples": [
@@ -200,7 +200,7 @@
         {
           "test_id": "T004",
           "scenario_id": "SC004",
-          "setup": "Provide verified PCRs and an unavailable or mismatching facts service",
+          "setup": "Provide verified realization data and an unavailable or mismatching facts service",
           "action": "Run content-script facts lookup",
           "assertion": "lock remains based on verification and factsMatched=false",
           "examples": [
@@ -259,46 +259,46 @@
         },
         {
           "scenario_id": "SC006",
-          "user_story": "As a reviewer, I want a rebuild-verification path, so that I can compare published measurements against an independent rebuild.",
+          "user_story": "As a reviewer, I want rebuild verification against published provenance, so that I can compare current outputs against the release artifact set.",
           "bdd": {
-            "given": "A published provenance manifest exists",
+            "given": "A published provenance manifest exists and a rebuild verifier is available",
             "and_preconditions": [
-              "A rebuild verifier is available"
+              "The same repo and ref are available"
             ],
             "when": "The same repo and ref are rebuilt",
             "then": "The EIF and measurement outputs can be compared against the published manifest",
             "and_postconditions": [
-              "Mismatches are visible and auditable"
+              "Comparison results are visible"
             ]
           }
         }
       ],
       "non_functional_requirements": [
         {
-          "nfr_id": "NFR005",
-          "type": "auditability",
-          "description": "Canonical provenance must record release tag, commit SHA, PCRs, and artifact hashes."
+          "nfr_id": "NFR004",
+          "type": "reproducibility",
+          "description": "Canonical provenance shall be reproducible and auditable."
         },
         {
-          "nfr_id": "NFR006",
-          "type": "reproducibility",
-          "description": "Third parties must be able to rerun a documented rebuild-verification process."
+          "nfr_id": "NFR005",
+          "type": "cost",
+          "description": "Release and facts automation shall minimize accidental cloud cost."
         }
       ],
       "test_cases": [
         {
           "test_id": "T005",
           "scenario_id": "SC005",
-          "setup": "Trigger a tagged release in the enclave repo",
-          "action": "Observe CI outputs",
-          "assertion": "Artifacts and facts-row update are generated",
+          "setup": "Push a canonical release tag",
+          "action": "Run release workflow",
+          "assertion": "Release artifacts and facts PR are produced",
           "examples": [
             {
               "input": {
-                "tag": "v0.1.3"
+                "tag": "v0.2.0"
               },
               "expected": {
-                "artifacts": 4
+                "factsPr": true
               }
             }
           ]
@@ -306,16 +306,16 @@
         {
           "test_id": "T006",
           "scenario_id": "SC006",
-          "setup": "Use provenance.json and the rebuild verifier",
-          "action": "Rebuild the enclave repo at the tagged ref",
-          "assertion": "Comparison result is available",
+          "setup": "Provide a published provenance manifest",
+          "action": "Run rebuild verification",
+          "assertion": "Comparison output is produced",
           "examples": [
             {
               "input": {
-                "expected_match": true
+                "match": true
               },
               "expected": {
-                "comparison": "pass"
+                "comparison": "ok"
               }
             }
           ]
@@ -326,31 +326,31 @@
       "feature_id": "F004",
       "general_info": {
         "name": "Operator deployment workflow",
-        "overview": "Operators can deploy and verify the canonical workload using AWS CLI automation and a TUI."
+        "overview": "Operators can deploy and verify tagged releases via AWS automation and inspect live deployments through a TUI."
       },
       "goal_and_context": {
-        "business_goal": "Reduce deployment friction and make attested deployment operations observable.",
-        "user_problem": "Manual cloud console deployment is slow, error-prone, and difficult to demonstrate or repeat."
+        "business_goal": "Make canonical deployment repeatable and observable.",
+        "user_problem": "Attested deployment workflows are difficult to run consistently from shell steps alone."
       },
       "actors_and_roles": {
-        "primary_user": "Operator or platform engineer",
-        "secondary_user": "Presenter or demo operator",
-        "system_service": "scripts/aws-cli and ztdeploy"
+        "primary_user": "Operator / platform engineer",
+        "secondary_user": "Reviewer or demo presenter",
+        "system_service": "AWS CLI scripts and ztdeploy TUI"
       },
       "business_rules": [
         {
           "rule_id": "BR007",
-          "description": "A successful verify run must check landing page and attestation endpoint before reporting success."
+          "description": "The operator flow must preserve deploy, verify, cleanup, and managed-list semantics."
         },
         {
           "rule_id": "BR008",
-          "description": "Verify runs clean up by default; deploy runs keep the environment live."
+          "description": "AWS CoCo is experimental in v1 but uses the same operator surface as the Nitro baseline."
         }
       ],
       "acceptance_criteria": [
         {
           "scenario_id": "SC007",
-          "user_story": "As an operator, I want a verify action that deploys, checks the service, and cleans up automatically, so that I can validate the path without leaving infrastructure running.",
+          "user_story": "As an operator, I want the verify flow to deploy, check, and clean up automatically, so that I can validate a release repeatably.",
           "bdd": {
             "given": "The AWS profile and release tag are configured",
             "and_preconditions": [
@@ -359,52 +359,52 @@
             "when": "The operator runs the verify flow",
             "then": "The workload is deployed, verified, and then stopped or terminated based on cleanup settings",
             "and_postconditions": [
-              "Stage logs are preserved"
+              "Stage logs and verification status are visible"
             ]
           }
         },
         {
           "scenario_id": "SC008",
-          "user_story": "As an operator, I want to inspect and manage running deployments from the TUI, so that live instances remain visible and controllable.",
+          "user_story": "As an operator, I want to inspect and manage live deployments from the TUI, so that I can observe lifecycle actions.",
           "bdd": {
-            "given": "Managed instances exist in AWS",
+            "given": "There are managed deployments",
             "and_preconditions": [
-              "The TUI can query AWS"
+              "The TUI is connected to the AWS account"
             ],
-            "when": "The deployments view is opened",
-            "then": "The UI lists instance IDs, states, instance types, and public IPs and allows stop/terminate actions",
+            "when": "The operator opens the deployments view",
+            "then": "The deployments view lists instances and lifecycle actions",
             "and_postconditions": [
-              "Operators can manage lifecycle without leaving the TUI"
+              "Stop and terminate actions remain available"
             ]
           }
         }
       ],
       "non_functional_requirements": [
         {
-          "nfr_id": "NFR007",
-          "type": "operability",
-          "description": "Deployment stages must expose live logs and status rather than one opaque command."
+          "nfr_id": "NFR005",
+          "type": "cost",
+          "description": "Deployment automation shall minimize accidental cloud cost."
         },
         {
-          "nfr_id": "NFR008",
-          "type": "cost-control",
-          "description": "Cleanup defaults must avoid leaving infrastructure running unintentionally."
+          "nfr_id": "NFR013",
+          "type": "traceability",
+          "description": "Release and operator metadata shall preserve traceability across Nitro and AWS CoCo realizations."
         }
       ],
       "test_cases": [
         {
           "test_id": "T007",
           "scenario_id": "SC007",
-          "setup": "Configure verify action and cleanup mode",
-          "action": "Run staged deploy",
-          "assertion": "Landing page and attestation checks succeed before cleanup",
+          "setup": "Configure release tag and AWS profile",
+          "action": "Run verify flow",
+          "assertion": "Deploy/check/cleanup completes",
           "examples": [
             {
               "input": {
-                "action": "verify"
+                "mode": "verify"
               },
               "expected": {
-                "success": true
+                "result": "success"
               }
             }
           ]
@@ -412,13 +412,13 @@
         {
           "test_id": "T008",
           "scenario_id": "SC008",
-          "setup": "Have at least one managed instance present",
-          "action": "Open deployments view",
-          "assertion": "Instance metadata and lifecycle actions are visible",
+          "setup": "Have managed runs in AWS",
+          "action": "Open ztdeploy deployments view",
+          "assertion": "Managed runs are listed",
           "examples": [
             {
               "input": {
-                "instances": 1
+                "view": "deployments"
               },
               "expected": {
                 "listed": true
@@ -432,85 +432,80 @@
       "feature_id": "F005",
       "general_info": {
         "name": "Demo and self-signed application path",
-        "overview": "Micrus and the demo service let teams exercise the trust flow with a self-signed root or a Nitro-shaped simulation path."
+        "overview": "Demo services expose Nitro-shaped attestation for learning and exploration while remaining clearly noncanonical."
       },
       "goal_and_context": {
-        "business_goal": "Provide a low-friction educational and product-demo path before a canonical enclave rollout is required.",
-        "user_problem": "Teams need a realistic demo path without always performing a full AWS Nitro deployment."
+        "business_goal": "Keep a noncanonical learning path available without diluting canonical trust claims.",
+        "user_problem": "Demo services need distinct trust-root labeling so that they are not confused with canonical releases."
       },
       "actors_and_roles": {
-        "primary_user": "Developer or educator",
-        "secondary_user": "Application team exploring trust-gated UX",
-        "system_service": "Micrus or demo service"
+        "primary_user": "Demo operator",
+        "secondary_user": "Presenter or learner",
+        "system_service": "Micrus / demo service"
       },
       "business_rules": [
         {
           "rule_id": "BR009",
-          "description": "Self-signed demo paths must be clearly distinguished from canonical AWS Nitro verification."
+          "description": "Demo services shall remain visibly noncanonical."
         },
         {
           "rule_id": "BR010",
-          "description": "Demo trust roots can support learning and product prototyping, but they must not be presented as canonical provenance."
+          "description": "Demo attestation shape may match the canonical path, but the trust root must remain clearly different."
         }
       ],
       "acceptance_criteria": [
         {
           "scenario_id": "SC009",
-          "user_story": "As a demo operator, I want Micrus to verify under a demo trust root, so that I can present an application-facing trust flow locally.",
+          "user_story": "As a demo operator, I want a self-signed path that still exercises the browser verification flow, so that I can demo the UX.",
           "bdd": {
-            "given": "Micrus is running and the demo root is configured as trusted",
+            "given": "Micrus is running with its demo root",
             "and_preconditions": [
-              "The extension or checker trusts the demo root"
+              "The extension is configured for the demo origin"
             ],
-            "when": "The page is validated",
-            "then": "The trust decision succeeds under the demo keychain",
+            "when": "The browser visits the demo page",
+            "then": "The page can be verified or intentionally rejected according to the configured demo root",
             "and_postconditions": [
-              "The UI can identify the demo trust root"
+              "The path remains visibly noncanonical"
             ]
           }
         },
         {
           "scenario_id": "SC010",
-          "user_story": "As a presenter, I want the canonical AWS path and the self-signed demo path to remain clearly separated, so that the audience understands which guarantees differ.",
+          "user_story": "As a presenter, I want canonical and demo keychains to stay visibly distinct, so that trust-root differences are obvious.",
           "bdd": {
-            "given": "Both canonical and demo flows exist in the project",
+            "given": "The popup renders a verified state",
             "and_preconditions": [
-              "Documentation and UI expose trust-root context"
+              "The current platform or trust root is known"
             ],
-            "when": "A demo is presented",
-            "then": "The demo root is shown as noncanonical and the canonical AWS path remains distinct",
+            "when": "The popup renders the state",
+            "then": "The popup distinguishes demo and canonical trust roots or equivalent platform labeling as implemented",
             "and_postconditions": [
-              "No false provenance claim is made"
+              "The user can tell demo from canonical"
             ]
           }
         }
       ],
       "non_functional_requirements": [
         {
-          "nfr_id": "NFR009",
-          "type": "clarity",
-          "description": "The UX must distinguish trusted-root context such as AWS root versus demo root."
-        },
-        {
-          "nfr_id": "NFR010",
-          "type": "maintainability",
-          "description": "Demo flows must not require architectural compromises in the canonical release path."
+          "nfr_id": "NFR006",
+          "type": "labeling",
+          "description": "Demo paths shall remain clearly labeled as noncanonical."
         }
       ],
       "test_cases": [
         {
           "test_id": "T009",
           "scenario_id": "SC009",
-          "setup": "Run Micrus with demo PKI and trust the demo root",
-          "action": "Validate the page",
-          "assertion": "The verifier accepts the demo chain and exposes demo trust-root context",
+          "setup": "Run Micrus in demo mode",
+          "action": "Visit demo page",
+          "assertion": "Demo validation behavior is observable",
           "examples": [
             {
               "input": {
-                "trust_root": "demo"
+                "mode": "demo"
               },
               "expected": {
-                "accepted": true
+                "demo": true
               }
             }
           ]
@@ -518,16 +513,462 @@
         {
           "test_id": "T010",
           "scenario_id": "SC010",
-          "setup": "Open popup for demo flow",
-          "action": "Inspect trust-root label",
-          "assertion": "Popup distinguishes demo keychain from canonical AWS keychain",
+          "setup": "Load the popup with demo and canonical states",
+          "action": "Render popup",
+          "assertion": "Demo and canonical labeling differ",
           "examples": [
             {
               "input": {
-                "keychain": "demo"
+                "state": "demo"
               },
               "expected": {
-                "label": "ZTBrowser Demo"
+                "label": "demo"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "feature_id": "F006",
+      "general_info": {
+        "name": "Multi-backend service realizations and AWS CoCo integration",
+        "overview": "One release can be realized on AWS Nitro or AWS CoCo using a common envelope and release-centered metadata."
+      },
+      "goal_and_context": {
+        "business_goal": "Support the same canonical HTML service release on AWS Nitro and AWS CoCo without rewriting the product model.",
+        "user_problem": "A PCR-only model cannot express a workload-specific CoCo realization or a release with multiple accepted backend realizations."
+      },
+      "actors_and_roles": {
+        "primary_user": "Security engineer / operator",
+        "secondary_user": "Auditor or reviewer",
+        "system_service": "Extension verifier, facts-node, ztdeploy, and release workflow"
+      },
+      "business_rules": [
+        {
+          "rule_id": "BR011",
+          "description": "The public attestation contract uses a versioned common envelope with a public platform field."
+        },
+        {
+          "rule_id": "BR012",
+          "description": "AWS CoCo evidence must be workload-specific and normalized to image digest plus measured Init-Data hash."
+        },
+        {
+          "rule_id": "BR013",
+          "description": "Nitro compatibility must remain available while release-centered realization lookup is added."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "scenario_id": "SC011",
+          "user_story": "As a reviewer, I want one attestation endpoint contract for Nitro and CoCo, so that browser entrypoints do not depend on backend-specific UX.",
+          "bdd": {
+            "given": "The service exposes a versioned common envelope",
+            "and_preconditions": [
+              "The platform value is supported"
+            ],
+            "when": "The browser verifies the response",
+            "then": "The verifier dispatches to the correct backend-specific path",
+            "and_postconditions": [
+              "The result is normalized for browser storage"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC012",
+          "user_story": "As a security engineer, I want CoCo evidence to prove a workload-specific identity rather than a generic guest, so that browser-visible trust is not vulnerable to interchangeable evidence.",
+          "bdd": {
+            "given": "The CoCo verifier receives raw evidence",
+            "and_preconditions": [
+              "The evidence is bound to a workload-specific runtime"
+            ],
+            "when": "The verifier normalizes the result",
+            "then": "The identity becomes `image_digest + initdata_hash` and generic evidence is rejected",
+            "and_postconditions": [
+              "The browser can match the realization to release metadata"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC013",
+          "user_story": "As a reviewer, I want release-centered facts lookup across accepted realizations, so that one release can describe both Nitro and CoCo.",
+          "bdd": {
+            "given": "A release has accepted Nitro and CoCo realizations",
+            "and_preconditions": [
+              "The facts database contains the release record"
+            ],
+            "when": "The extension queries the release-realization lookup",
+            "then": "The facts node resolves the realization and still preserves Nitro compatibility",
+            "and_postconditions": [
+              "Legacy lookup-by-pcr remains supported"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC014",
+          "user_story": "As an operator, I want the canonical HTML service to lower into Nitro and AWS CoCo deployment inputs, so that I can deploy either realization from one release.",
+          "bdd": {
+            "given": "The canonical release repo publishes a release manifest",
+            "and_preconditions": [
+              "Nitro and CoCo lowering artifacts are generated"
+            ],
+            "when": "The release workflow runs",
+            "then": "The release publishes Nitro and CoCo realization outputs",
+            "and_postconditions": [
+              "The release artifacts remain versioned and auditable"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC015",
+          "user_story": "As an operator, I want an AWS-only experimental CoCo deploy/verify path, so that I can prove the backend actually works rather than only generating code or docs.",
+          "bdd": {
+            "given": "The AWS CoCo lane is enabled in the operator surface",
+            "and_preconditions": [
+              "A real AWS substrate is available"
+            ],
+            "when": "The operator runs deploy/verify",
+            "then": "The service deploys, the landing page and attestation endpoint are checked, and cleanup happens according to mode",
+            "and_postconditions": [
+              "The run is marked experimental, not production-proof"
+            ]
+          }
+        },
+        {
+          "scenario_id": "SC016",
+          "user_story": "As an operator, I want the runtime and operator UI to reveal the backend realization in use, so that Nitro and CoCo runs are not confused.",
+          "bdd": {
+            "given": "Nitro and CoCo runs may both exist",
+            "and_preconditions": [
+              "The deployment list is populated"
+            ],
+            "when": "The operator inspects the run list",
+            "then": "The platform metadata is visible and distinguishes the realizations",
+            "and_postconditions": [
+              "The run history remains traceable"
+            ]
+          }
+        }
+      ],
+      "non_functional_requirements": [
+        {
+          "nfr_id": "NFR008",
+          "type": "versioning",
+          "description": "Common-envelope and realization identity changes shall remain versioned and extensible."
+        },
+        {
+          "nfr_id": "NFR009",
+          "type": "security",
+          "description": "AWS CoCo evidence shall remain workload-specific and must not rely on generic guest evidence."
+        },
+        {
+          "nfr_id": "NFR010",
+          "type": "integrity",
+          "description": "Facts shall remain metadata even when multiple accepted realizations exist for a release."
+        },
+        {
+          "nfr_id": "NFR011",
+          "type": "labeling",
+          "description": "AWS CoCo operator support shall remain explicitly experimental in the current product scope."
+        },
+        {
+          "nfr_id": "NFR012",
+          "type": "compatibility",
+          "description": "The new CoCo path shall not silently replace or regress Nitro verification semantics."
+        },
+        {
+          "nfr_id": "NFR013",
+          "type": "traceability",
+          "description": "Release and operator metadata shall preserve traceability across Nitro and AWS CoCo realizations."
+        }
+      ],
+      "test_cases": [
+        {
+          "test_id": "T011",
+          "scenario_id": "SC011",
+          "setup": "Load a common-envelope attestation",
+          "action": "Call verifier entrypoint",
+          "assertion": "Platform dispatch succeeds",
+          "examples": [
+            {
+              "input": {
+                "platform": "aws_nitro_eif"
+              },
+              "expected": {
+                "workingEnv": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T012",
+          "scenario_id": "SC011",
+          "setup": "Provide an unknown platform or bad envelope version",
+          "action": "Call verifier entrypoint",
+          "assertion": "Verifier rejects the request",
+          "examples": [
+            {
+              "input": {
+                "platform": "unknown"
+              },
+              "expected": {
+                "reason": "unsupported_platform"
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T013",
+          "scenario_id": "SC012",
+          "setup": "Provide valid CoCo evidence",
+          "action": "Run CoCo verifier path",
+          "assertion": "Normalized identity is returned",
+          "examples": [
+            {
+              "input": {
+                "platform": "aws_coco_snp"
+              },
+              "expected": {
+                "identity": "image_digest + initdata_hash"
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T014",
+          "scenario_id": "SC012",
+          "setup": "Provide generic CoCo evidence",
+          "action": "Run CoCo verifier path",
+          "assertion": "Generic evidence is rejected",
+          "examples": [
+            {
+              "input": {
+                "generic": true
+              },
+              "expected": {
+                "reason": "unsupported_platform"
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T015",
+          "scenario_id": "SC013",
+          "setup": "Provide a matched realization and facts row",
+          "action": "Run release-realization lookup",
+          "assertion": "The release is resolved",
+          "examples": [
+            {
+              "input": {
+                "match": true
+              },
+              "expected": {
+                "matched": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T016",
+          "scenario_id": "SC013",
+          "setup": "Provide a facts miss after successful verification",
+          "action": "Run release-realization lookup",
+          "assertion": "Verification success remains intact",
+          "examples": [
+            {
+              "input": {
+                "match": false
+              },
+              "expected": {
+                "factsMatched": false
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T017",
+          "scenario_id": "SC013",
+          "setup": "Provide a Nitro PCR tuple",
+          "action": "Run lookup-by-pcr compatibility path",
+          "assertion": "Nitro compatibility remains available",
+          "examples": [
+            {
+              "input": {
+                "pcr": true
+              },
+              "expected": {
+                "compatibility": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T018",
+          "scenario_id": "SC014",
+          "setup": "Run canonical release workflow",
+          "action": "Inspect published artifacts",
+          "assertion": "Nitro and CoCo realization outputs are present",
+          "examples": [
+            {
+              "input": {
+                "tag": "v0.2.0"
+              },
+              "expected": {
+                "realizations": 2
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T019",
+          "scenario_id": "SC014",
+          "setup": "Fetch runtime envelope from the endpoint",
+          "action": "Inspect response shape",
+          "assertion": "Common envelope fields are present",
+          "examples": [
+            {
+              "input": {
+                "endpoint": "/.well-known/attestation"
+              },
+              "expected": {
+                "version": "ztinfra-attestation/v1"
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T020",
+          "scenario_id": "SC015",
+          "setup": "Use a real AWS substrate",
+          "action": "Run CoCo deploy/verify",
+          "assertion": "Happy path succeeds",
+          "examples": [
+            {
+              "input": {
+                "mode": "verify"
+              },
+              "expected": {
+                "result": "success"
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T021",
+          "scenario_id": "SC015",
+          "setup": "Use a faulty CoCo runtime",
+          "action": "Run CoCo deploy/verify",
+          "assertion": "Verification failure is surfaced honestly",
+          "examples": [
+            {
+              "input": {
+                "mode": "verify",
+                "fault": true
+              },
+              "expected": {
+                "result": "failure"
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T022",
+          "scenario_id": "SC016",
+          "setup": "Have mixed Nitro and CoCo managed runs",
+          "action": "Inspect deployment listing",
+          "assertion": "Platform metadata is visible",
+          "examples": [
+            {
+              "input": {
+                "mixed": true
+              },
+              "expected": {
+                "platform": "aws_coco_snp"
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T023",
+          "scenario_id": "SC016",
+          "setup": "Enable AWS CoCo lane",
+          "action": "Run cleanup-aware operator flow",
+          "assertion": "Experimental labeling is visible",
+          "examples": [
+            {
+              "input": {
+                "mode": "experimental"
+              },
+              "expected": {
+                "experimental": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T024",
+          "scenario_id": "SC016",
+          "setup": "Inspect run metadata",
+          "action": "Open run history",
+          "assertion": "Lifecycle state and platform are visible",
+          "examples": [
+            {
+              "input": {
+                "view": "runs"
+              },
+              "expected": {
+                "platformVisible": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T025",
+          "scenario_id": "SC016",
+          "setup": "Use branch-adjacent capacity fallback logic",
+          "action": "Run operator path",
+          "assertion": "Later allowed instance type is selected",
+          "examples": [
+            {
+              "input": {
+                "fallback": true
+              },
+              "expected": {
+                "selected": true
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T026",
+          "scenario_id": "SC016",
+          "setup": "Exhaust instance-type candidates",
+          "action": "Run operator path",
+          "assertion": "Failure is surfaced clearly",
+          "examples": [
+            {
+              "input": {
+                "exhausted": true
+              },
+              "expected": {
+                "result": "failure"
+              }
+            }
+          ]
+        },
+        {
+          "test_id": "T027",
+          "scenario_id": "SC016",
+          "setup": "Inspect run metadata after selection",
+          "action": "Open TUI run view",
+          "assertion": "Instance type persists into run metadata",
+          "examples": [
+            {
+              "input": {
+                "persist": true
+              },
+              "expected": {
+                "instanceType": true
               }
             }
           ]
