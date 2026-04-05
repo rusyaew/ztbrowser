@@ -17,14 +17,16 @@ It contains useful draft material, but it is not authoritative for repo truth.
 
 - Chrome extension verifier flow
 - facts node and canonical facts row support
-- standalone checker
+- realization-based facts lookup with `lookup-by-realization`
+- standalone checker compatibility path
 - demo service and Micrus demo
 - canonical enclave split to `ztinfra-enclaveproducedhtml`
 - AWS Nitro parent-proxy path
+- AWS CoCo v1 release and operator artifacts
 - AWS CLI lifecycle scripts for EC2/Nitro deployment
 - `ztdeploy` operator TUI
 - managed deployment listing and lifecycle actions
-- tests for extension unit/integration behavior
+- tests for extension, facts-node, and integration behavior
 - CI and Render deploy hooks
 
 ## What the external canonical enclave repo owns
@@ -37,6 +39,8 @@ It contains useful draft material, but it is not authoritative for repo truth.
   - `describe-eif.json`
   - `provenance.json`
   - `SHA256SUMS`
+  - `release-manifest.json`
+  - `coco-runtime-config.json`
 - facts PR generation for canonical rows
 
 ## Delivery model in current repo truth

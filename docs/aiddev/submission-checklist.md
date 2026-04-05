@@ -1,6 +1,7 @@
 # Submission Checklist
 
 - [ ] `docs/aiddev/README.md` explains the artifact set
+- [ ] `docs/aiddev/evaluation_criteria.md` captures the course grading frame
 - [ ] repo baseline and course-to-repo mapping are documented
 - [ ] product framing is explicit and consistent
 - [ ] market/competitor analysis is present and source-aware
@@ -14,4 +15,4 @@
 - [ ] monitoring, dashboard, and PMF docs are honest and non-fabricated
 - [ ] governance/pricing/monetization docs exist and align with product framing
 - [ ] pitch outline and 3-month roadmap exist
-- [ ] no document claims CoCo, multi-cloud, or FHE are already implemented
+- [ ] no document claims AWS-only CoCo v1 is absent or that multi-cloud/FHE are already implemented

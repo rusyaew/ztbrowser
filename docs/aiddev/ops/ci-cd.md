@@ -14,6 +14,7 @@ This lane currently covers:
 - `npm ci`
 - typecheck
 - extension unit/integration tests
+- facts-node tests
 - smoke API checks
 - Render deploy hooks on pushes to `main`
 
@@ -29,6 +30,8 @@ Release workflow responsibilities:
 - generate `describe-eif.json`
 - generate `provenance.json`
 - publish checksums
+- publish `release-manifest.json`
+- publish `coco-runtime-config.json`
 - open a canonical facts PR into `ztbrowser`
 
 Rebuild-verification workflow responsibilities:
@@ -47,6 +50,7 @@ This lane currently covers:
 - AWS prerequisite and IAM bootstrap assistance
 - EC2 key pair, security group, launch template, and instance lifecycle automation
 - deployment of tagged canonical enclave releases onto Nitro-capable EC2 parents
+- experimental AWS CoCo deployment and verification lane
 - verification-oriented runs and long-lived deployment runs
 - managed deployment listing, stop, and terminate actions through the TUI
 
@@ -66,4 +70,5 @@ That framing is accurate and stronger than claiming there is only repo CI plus e
 
 - stronger automated checks linking canonical release fields to facts rows in `ztbrowser`
 - stronger automated tests around `ztdeploy` stage behavior and AWS script semantics
+- a live AWS CoCo substrate proof in this repo-only pass
 - a single cross-repo operational dashboard or metrics layer
