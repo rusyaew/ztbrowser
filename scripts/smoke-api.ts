@@ -1,4 +1,5 @@
 import { spawn, ChildProcess } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const TSX_BIN = path.join(process.cwd(), 'node_modules', '.bin', 'tsx');
@@ -97,6 +98,37 @@ async function verifyFlow(
   }
 }
 
+async function verifyRealizationLookup(factsUrl: string): Promise<void> {
+  const factsPath = path.join(process.cwd(), 'facts-node', 'facts-db.json');
+  const factsDb = JSON.parse(fs.readFileSync(factsPath, 'utf8')) as Json;
+  const release = (Array.isArray(factsDb.releases) ? factsDb.releases : []).find(
+    (entry) =>
+      entry &&
+      typeof entry === 'object' &&
+      entry.service === 'ztinfra-enclaveproducedhtml' &&
+      entry.release_id === 'v0.2.0' &&
+      Array.isArray(entry.accepted_realizations)
+  ) as Json | undefined;
+
+  assert(release, 'expected canonical CoCo release row in facts db');
+  const verifiedRelease = release as Json;
+  const cocoRealization = (verifiedRelease.accepted_realizations as Json[]).find(
+    (entry) => entry && entry.platform === 'aws_coco_snp'
+  ) as Json | undefined;
+  assert(cocoRealization, 'expected canonical CoCo realization in facts db');
+  const verifiedCocoRealization = cocoRealization as Json;
+
+  const facts = await postJson(`${factsUrl}/api/v1/lookup-by-realization`, {
+    platform: verifiedCocoRealization.platform,
+    identity: verifiedCocoRealization.identity,
+  });
+
+  assert(facts.status === 200, 'realization lookup failed');
+  assert(facts.json.matched === true, 'expected realization match');
+  assert((facts.json.release as Json).release_id === 'v0.2.0', 'expected canonical CoCo release');
+  assert((facts.json.realization as Json).platform === 'aws_coco_snp', 'expected CoCo realization');
+}
+
 async function run(): Promise<void> {
   const factsPort = '17777';
   const checkerPort = '13000';
@@ -117,6 +149,7 @@ async function run(): Promise<void> {
       `http://localhost:${factsPort}`,
       true
     );
+    await verifyRealizationLookup(`http://localhost:${factsPort}`);
     await verifyFlow(
       `http://localhost:${badPort}`,
       `http://localhost:${checkerPort}`,

@@ -93,7 +93,7 @@ describe('factsDb', () => {
     });
 
     expect(cocoMatch?.release.release_id).toBe('v0.1.3');
-    expect(releaseToLegacyProjection(cocoMatch!.release, cocoMatch!.realization)).toMatchObject({
+    expect(releaseToLegacyProjection(cocoMatch.release, cocoMatch.realization)).toMatchObject({
       workload_id: 'ztbrowser-aws-nitro',
       repo_url: 'https://github.com/rusyaew/ztinfra-enclaveproducedhtml',
       oci_image_digest: imageDigest,
